@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "volume-companion"
+version = "0.1.0"
+description = "Command-line tool showing historical trading volume as ASCII bars."
+authors = ["René Lacher <renemlacher@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "volume_companion", from = "src" }]
+
+[tool.poetry.scripts]
+volume-companion = "volume_companion.cli:main"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
