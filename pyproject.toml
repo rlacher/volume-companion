@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{ include = "volume_companion", from = "src" }]
 
 [tool.poetry.scripts]
-volume-companion = "volume_companion.cli:main"
+volume-companion = "volume_companion.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"
