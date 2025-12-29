@@ -6,16 +6,8 @@ import cmd
 import logging
 from pathlib import Path
 
-
-class SessionState:
-    """Holds current interactive session configuration."""
-
-    def __init__(self) -> None:
-        self.bars: int = 10
-        self.timeframe: str = "M5"
-        self.offset: int = 0
-        self.verbose: bool = False
-        self.datetime: str | None = None
+from pydantic_core import ValidationError
+from volume_companion.session_state import SessionState
 
 
 class VolumeCLI(cmd.Cmd):
@@ -33,20 +25,25 @@ class VolumeCLI(cmd.Cmd):
         logging.info(f"Loaded CSV: {csv_path.name}")
 
     def do_bars(self, arg: str) -> None:
-        """bars <int>"""
-        self._set_bars(arg)
-
-    def do_timeframe(self, arg: str) -> None:
-        """timeframe <str>"""
-        self._set_timeframe(arg)
+        """Set number of displayed bars: bars <int>"""
+        try:
+            self.state.bars = int(arg)
+            logging.info("bars=%s", self.state.bars)
+        except (ValueError, ValidationError):
+            logging.info("Invalid bars value: %s", arg)
 
     def do_offset(self, arg: str) -> None:
-        """offset <int>"""
-        self._set_offset(arg)
+        """Set timezone offset: offset <int>"""
+        try:
+            self.state.offset = int(arg)
+            logging.info("offset=%s", self.state.offset)
+        except (ValueError, ValidationError):
+            logging.info("Invalid offset value: %s", arg)
 
     def do_verbose(self, arg: str) -> None:
-        """Toggle verbose mode."""
-        self._toggle_verbose()
+        """Toggle verbose mode: verbose"""
+        self.state.toggle_verbose()
+        logging.info("verbose=%s", self.state.verbose)
 
     def do_config(self, arg: str) -> None:
         """Show current configuration."""
@@ -63,44 +60,13 @@ class VolumeCLI(cmd.Cmd):
 
     def do_EOF(self, arg: str) -> bool:
         """Exit on Ctrl-D."""
-        logging.info("")
         return self.do_quit(arg)
-
-    def _set_bars(self, arg: str) -> None:
-        """Set number of displayed bars."""
-        try:
-            self.state.bars = int(arg)
-            logging.info(f"Bars set to {self.state.bars}")
-        except ValueError:
-            logging.info("Invalid bars value")
-
-    def _set_timeframe(self, arg: str) -> None:
-        """Set timeframe."""
-        if not arg:
-            logging.info("Missing timeframe value")
-            return
-        self.state.timeframe = arg
-        logging.info(f"Timeframe set to {self.state.timeframe}")
-
-    def _set_offset(self, arg: str) -> None:
-        """Set timezone offset."""
-        try:
-            self.state.offset = int(arg)
-            logging.info(f"Offset set to {self.state.offset}")
-        except ValueError:
-            logging.info("Invalid offset value")
-
-    def _toggle_verbose(self) -> None:
-        """Toggle verbose mode."""
-        self.state.verbose = not self.state.verbose
-        logging.info(f"Verbose: {self.state.verbose}")
 
     def _show_config(self) -> None:
         """Display current session configuration."""
         logging.info(
-            "bars=%s, timeframe=%s, offset=%s, verbose=%s, datetime=%s",
+            "bars=%s, offset=%s, verbose=%s, datetime=%s",
             self.state.bars,
-            self.state.timeframe,
             self.state.offset,
             self.state.verbose,
             self.state.datetime,
@@ -112,7 +78,7 @@ class VolumeCLI(cmd.Cmd):
 
     def default(self, line: str) -> None:
         """Handle unknown commands."""
-        logging.info("Unknown command")
+        logging.info("Unknown command: %s", line)
 
     def emptyline(self) -> None:
         """Ignore empty input."""

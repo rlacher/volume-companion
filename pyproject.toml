@@ -12,6 +12,7 @@ volume-companion = "volume_companion.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+pydantic = "^2.12"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
