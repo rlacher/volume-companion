@@ -1,5 +1,8 @@
 # Volume Companion
 
+<!-- Badges -->
+[![license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://spdx.org/licenses/MIT.html)
+
 Command-line tool displaying historical trading volume as ASCII bars from local CSV data.
 
 ## Table of Contents
