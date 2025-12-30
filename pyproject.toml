@@ -16,6 +16,10 @@ pydantic = "^2.12"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
+pre-commit = "^4.5"
+flake8 = "^7.3"
+flake8-bugbear = "^25.0"
+flake8-comprehensions = "^3.0"
 
 [build-system]
 requires = ["poetry-core"]
