@@ -13,14 +13,14 @@ from volume_companion.session_state import SessionState
 class VolumeCLI(cmd.Cmd):
     """Interactive command loop."""
 
-    intro = "Volume Companion — type 'help' or 'quit'"
+    intro = "Volume Companion - type 'help' or 'quit'"
     prompt = "> "
 
-    def __init__(self, csv_path: Path) -> None:
-        """Initialise CLI and session state."""
+    def __init__(self, csv_path: Path, state: SessionState) -> None:
+        """Initialise CLI with injected session state."""
         super().__init__()
         self.csv_path = csv_path
-        self.state = SessionState()
+        self.state = state
 
         logging.info(f"Loaded CSV: {csv_path.name}")
 
@@ -83,8 +83,3 @@ class VolumeCLI(cmd.Cmd):
     def emptyline(self) -> bool:
         """Ignore empty input."""
         return False
-
-
-def run_cli(csv_path: Path) -> None:
-    """Start the interactive CLI."""
-    VolumeCLI(csv_path).cmdloop()

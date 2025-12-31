@@ -9,7 +9,7 @@ class SessionState(BaseModel):
     """Holds current interactive session configuration."""
     model_config = ConfigDict(validate_assignment=True)
     bars: int = Field(default=10, ge=1, le=100)
-    offset: int = Field(default=0, ge=-23, le=23)
+    offset: int = Field(default=0, ge=-12, le=14)
     verbose: bool = False
     datetime: str | None = None
 

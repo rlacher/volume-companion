@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from volume_companion.cli import VolumeCLI
+from volume_companion.session_state import SessionState
 
 SUBPROCESS_TIMEOUT_SECONDS = 5
 
@@ -40,7 +41,7 @@ def test_cli_smoke(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0
-    assert result.stderr == ""
+    assert not result.stderr
     assert "bars=" in result.stdout
     assert result.stdout.count("verbose=") == 2
 
@@ -53,7 +54,10 @@ def test_do_config_outputs_state(caplog) -> None:
     Verifies that the CLI exposes current session state via logging
     without asserting on exact formatting.
     """
-    cli = VolumeCLI(csv_path=Path("dummy.csv"))
+    cli = VolumeCLI(
+        csv_path=Path("dummy.csv"),
+        state=SessionState()
+    )
 
     with caplog.at_level(logging.INFO):
         cli.do_config("")

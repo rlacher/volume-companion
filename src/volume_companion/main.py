@@ -8,7 +8,8 @@ import logging
 import sys
 from pathlib import Path
 
-from volume_companion.cli import run_cli
+from volume_companion.cli import VolumeCLI
+from volume_companion.session_state import SessionState
 
 
 def _configure_logging() -> None:
@@ -33,8 +34,7 @@ def parse_args() -> Path:
 
     path = Path(args.csv_path)
     if not path.is_file():
-        logging.error("Error: CSV file not found.")
-        sys.exit(1)
+        raise FileNotFoundError(f"CSV file not found: {path}")
 
     return path
 
@@ -42,8 +42,11 @@ def parse_args() -> Path:
 def main() -> None:
     """CLI entrypoint."""
     _configure_logging()
+
     csv_path = parse_args()
-    run_cli(csv_path)
+    session_state = SessionState()
+
+    VolumeCLI(csv_path, session_state).cmdloop()
 
 
 if __name__ == "__main__":
