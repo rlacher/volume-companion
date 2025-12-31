@@ -8,13 +8,23 @@ readme = "README.md"
 packages = [{ include = "volume_companion", from = "src" }]
 
 [tool.poetry.scripts]
-volume-companion = "volume_companion.cli:main"
+volume-companion = "volume_companion.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+pydantic = "^2.12"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
+pytest-cov = "^7.0"
+pre-commit = "^4.5"
+flake8 = "^7.3"
+flake8-bugbear = "^25.0"
+flake8-comprehensions = "^3.0"
+mypy = "*"
+
+[tool.pytest.ini_options]
+markers = ["unit", "integration", "system"]
 
 [build-system]
 requires = ["poetry-core"]
