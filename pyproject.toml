@@ -21,6 +21,7 @@ pre-commit = "^4.5"
 flake8 = "^7.3"
 flake8-bugbear = "^25.0"
 flake8-comprehensions = "^3.0"
+mypy = "*"
 
 [tool.pytest.ini_options]
 markers = ["unit", "integration", "system"]
