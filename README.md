@@ -1,6 +1,10 @@
 # Volume Companion
 
 <!-- Badges -->
+<!-- Badges -->
+[![flake8](https://img.shields.io/github/actions/workflow/status/rlacher/volume-companion/flake8.yaml?label=flake8&style=flat)](https://github.com/rlacher/volume-companion/actions/workflows/flake8.yaml)
+[![mypy](https://img.shields.io/github/actions/workflow/status/rlacher/volume-companion/mypy.yaml?label=mypy&style=flat)](https://github.com/rlacher/volume-companion/actions/workflows/mypy.yaml)
+[![pytest](https://img.shields.io/github/actions/workflow/status/rlacher/volume-companion/pytest.yaml?label=pytest&style=flat)](https://github.com/rlacher/volume-companion/actions/workflows/pytest.yaml)
 [![license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://spdx.org/licenses/MIT.html)
 
 Command-line tool displaying historical trading volume as ASCII bars from local CSV data.
