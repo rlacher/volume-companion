@@ -80,9 +80,9 @@ class VolumeCLI(cmd.Cmd):
         """Handle unknown commands."""
         logging.info("Unknown command: %s", line)
 
-    def emptyline(self) -> None:
+    def emptyline(self) -> bool:
         """Ignore empty input."""
-        pass
+        return False
 
 
 def run_cli(csv_path: Path) -> None:
