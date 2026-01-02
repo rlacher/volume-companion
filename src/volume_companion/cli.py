@@ -3,7 +3,6 @@
 """Prompt-based CLI interface."""
 
 import cmd
-import logging
 from pathlib import Path
 
 from pydantic_core import ValidationError
@@ -22,28 +21,28 @@ class VolumeCLI(cmd.Cmd):
         self.csv_path = csv_path
         self.state = state
 
-        logging.info(f"Loaded CSV: {csv_path.name}")
+        print(f"Loaded CSV: {csv_path.name}")
 
     def do_bars(self, arg: str) -> None:
         """Set number of displayed bars: bars <int>"""
         try:
             self.state.bars = int(arg)
-            logging.info("bars=%s", self.state.bars)
+            print(f"bars={self.state.bars}")
         except (ValueError, ValidationError):
-            logging.info("Invalid bars value: %s", arg)
+            print(f"Invalid bars value: {arg}")
 
     def do_offset(self, arg: str) -> None:
         """Set timezone offset: offset <int>"""
         try:
             self.state.offset = int(arg)
-            logging.info("offset=%s", self.state.offset)
+            print(f"offset={self.state.offset}")
         except (ValueError, ValidationError):
-            logging.info("Invalid offset value: %s", arg)
+            print(f"Invalid offset value: {arg}")
 
     def do_verbose(self, arg: str) -> None:
         """Toggle verbose mode: verbose"""
         self.state.toggle_verbose()
-        logging.info("verbose=%s", self.state.verbose)
+        print(f"verbose={self.state.verbose}")
 
     def do_config(self, arg: str) -> None:
         """Show current configuration."""
@@ -55,7 +54,7 @@ class VolumeCLI(cmd.Cmd):
 
     def do_quit(self, arg: str) -> bool:
         """Exit the tool."""
-        logging.info("Bye.")
+        print("Bye.")
         return True
 
     def do_EOF(self, arg: str) -> bool:
@@ -64,21 +63,20 @@ class VolumeCLI(cmd.Cmd):
 
     def _show_config(self) -> None:
         """Display current session configuration."""
-        logging.info(
-            "bars=%s, offset=%s, verbose=%s, datetime=%s",
-            self.state.bars,
-            self.state.offset,
-            self.state.verbose,
-            self.state.datetime,
+        print(
+            f"bars={self.state.bars}, "
+            f"offset={self.state.offset}, "
+            f"verbose={self.state.verbose}, "
+            f"datetime={self.state.datetime}"
         )
 
     def _step(self) -> None:
         """Advance to next bar (placeholder)."""
-        logging.info("Step executed (placeholder)")
+        print("Step executed (placeholder)")
 
     def default(self, line: str) -> None:
         """Handle unknown commands."""
-        logging.info("Unknown command: %s", line)
+        print("Unknown command: %s", line)
 
     def emptyline(self) -> bool:
         """Ignore empty input."""

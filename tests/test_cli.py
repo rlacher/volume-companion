@@ -2,7 +2,6 @@
 # Copyright (c) 2025 René Lacher
 """Tests for the Volume Companion CLI."""
 
-import logging
 import subprocess
 from pathlib import Path
 import pytest
@@ -47,7 +46,7 @@ def test_cli_smoke(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-def test_do_config_outputs_state(caplog) -> None:
+def test_do_config_outputs_state(capsys) -> None:
     """
     Lightweight integration test for the `config` command.
 
@@ -59,12 +58,10 @@ def test_do_config_outputs_state(caplog) -> None:
         state=SessionState()
     )
 
-    with caplog.at_level(logging.INFO):
-        cli.do_config("")
+    cli.do_config("")
 
-    assert len(caplog.records) == 1
-    record_message = caplog.records[0].message
+    captured = capsys.readouterr()
 
-    assert "bars=" in record_message
-    assert "offset=" in record_message
-    assert "verbose=" in record_message
+    assert "bars=" in captured.out
+    assert "offset=" in captured.out
+    assert "verbose=" in captured.out

@@ -4,21 +4,10 @@
 """Executable entry point for the Volume Companion CLI."""
 
 import argparse
-import logging
-import sys
 from pathlib import Path
 
 from volume_companion.cli import VolumeCLI
 from volume_companion.session_state import SessionState
-
-
-def _configure_logging() -> None:
-    """Configure lean console logging."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)]
-    )
 
 
 def parse_args() -> Path:
@@ -41,8 +30,6 @@ def parse_args() -> Path:
 
 def main() -> None:
     """CLI entrypoint."""
-    _configure_logging()
-
     csv_path = parse_args()
     session_state = SessionState()
 
