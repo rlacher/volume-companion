@@ -50,13 +50,13 @@ class VolumeCLI(cmd.Cmd):
             f"bars={self.state.bars}, "
             f"offset={self.state.offset}, "
             f"verbose={self.state.verbose}, "
-            f"datetime={self.state.datetime}"
+            f"selected_datetime={self.state.selected_datetime}"
         )
 
     def do_datetime(self, arg: str) -> None:
         """Query datetime: datetime <YYYY.MM.DD,HH:MM>"""
-        self.state.datetime = arg
-        print(f"datetime={self.state.datetime}")
+        self.state.selected_datetime = arg
+        print(f"selected_datetime={self.state.selected_datetime}")
         self._query_datetime()
 
     def do_step(self, arg: str) -> None:
@@ -74,7 +74,7 @@ class VolumeCLI(cmd.Cmd):
 
     def default(self, line: str) -> None:
         """Handle unknown commands."""
-        print("Unknown command: %s", line)
+        print(f"Unknown command: {line}")
 
     def emptyline(self) -> bool:
         """Ignore empty input."""
