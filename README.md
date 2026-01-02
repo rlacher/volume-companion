@@ -1,7 +1,6 @@
 # Volume Companion
 
 <!-- Badges -->
-<!-- Badges -->
 [![flake8](https://img.shields.io/github/actions/workflow/status/rlacher/volume-companion/flake8.yaml?label=flake8&style=flat)](https://github.com/rlacher/volume-companion/actions/workflows/flake8.yaml)
 [![mypy](https://img.shields.io/github/actions/workflow/status/rlacher/volume-companion/mypy.yaml?label=mypy&style=flat)](https://github.com/rlacher/volume-companion/actions/workflows/mypy.yaml)
 [![pytest](https://img.shields.io/github/actions/workflow/status/rlacher/volume-companion/pytest.yaml?label=pytest&style=flat)](https://github.com/rlacher/volume-companion/actions/workflows/pytest.yaml)
@@ -51,7 +50,7 @@ Type `help` to list available commands.
 
 Within the prompt you can configure the session, navigate through data, and display volume at specific points in time.
 
-- `YYYY-MM-DDTHH:MM`: enter a datetime to display volume bars (ISO format)
+- `datetime YYYY-MM-DDTHH:MM`: enter a datetime to display volume bars (ISO format)
 - `bars <int>`: set the number of displayed bars
 - `offset <int>`: set the time zone offset
 - `step`: advance to the next bar
