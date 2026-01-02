@@ -12,7 +12,3 @@ class SessionState(BaseModel):
     offset: int = Field(default=0, ge=-12, le=14)
     verbose: bool = False
     datetime: str | None = None
-
-    def toggle_verbose(self) -> None:
-        """Toggle verbose mode."""
-        self.verbose = not self.verbose

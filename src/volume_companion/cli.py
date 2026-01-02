@@ -41,28 +41,11 @@ class VolumeCLI(cmd.Cmd):
 
     def do_verbose(self, arg: str) -> None:
         """Toggle verbose mode: verbose"""
-        self.state.toggle_verbose()
+        self.state.verbose = not self.state.verbose
         print(f"verbose={self.state.verbose}")
 
     def do_config(self, arg: str) -> None:
-        """Show current configuration."""
-        self._show_config()
-
-    def do_step(self, arg: str) -> None:
-        """Advance one bar."""
-        self._step()
-
-    def do_quit(self, arg: str) -> bool:
-        """Exit the tool."""
-        print("Bye.")
-        return True
-
-    def do_EOF(self, arg: str) -> bool:
-        """Exit on Ctrl-D."""
-        return self.do_quit(arg)
-
-    def _show_config(self) -> None:
-        """Display current session configuration."""
+        """Show current configuration: config"""
         print(
             f"bars={self.state.bars}, "
             f"offset={self.state.offset}, "
@@ -70,9 +53,24 @@ class VolumeCLI(cmd.Cmd):
             f"datetime={self.state.datetime}"
         )
 
-    def _step(self) -> None:
-        """Advance to next bar (placeholder)."""
-        print("Step executed (placeholder)")
+    def do_datetime(self, arg: str) -> None:
+        """Query datetime: datetime <YYYY.MM.DD,HH:MM>"""
+        self.state.datetime = arg
+        print(f"datetime={self.state.datetime}")
+        self._query_datetime()
+
+    def do_step(self, arg: str) -> None:
+        """Advance one bar: step"""
+        self._step()
+
+    def do_quit(self, arg: str) -> bool:
+        """Exit the tool: quit"""
+        print("Bye.")
+        return True
+
+    def do_EOF(self, arg: str) -> bool:
+        """Exit on Ctrl-D."""
+        return self.do_quit(arg)
 
     def default(self, line: str) -> None:
         """Handle unknown commands."""
@@ -81,3 +79,11 @@ class VolumeCLI(cmd.Cmd):
     def emptyline(self) -> bool:
         """Ignore empty input."""
         return False
+
+    def _query_datetime(self) -> None:
+        """Query data for current datetime (placeholder)."""
+        print("Queried data (placeholder)")
+
+    def _step(self) -> None:
+        """Advance to next bar (placeholder)."""
+        print("Step executed (placeholder)")
