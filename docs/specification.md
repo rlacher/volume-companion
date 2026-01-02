@@ -25,14 +25,15 @@
 
 ## 6. Volume Display (ASCII Art Representation)
 6.1 The tool shall display the most recent N bars’ volumes as ASCII-art bars, one per price bar, left-to-right, with a space delimiter.  
-6.2 Each bar shall be drawn using Unicode block characters *▁▂▃▄▅▆▇█* (u2581–u2588), aligned vertically across 5 terminal rows, achieving 40 levels of granularity.  
-6.3 Colour coding shall reflect price direction:  
+6.2 Each bar shall be drawn using Unicode block characters *▁▂▃▄▅▆▇█* (u2581–u2588), aligned vertically across 5 terminal rows, achieving 40 levels of granularity.
+6.3 Bar heights shall be scaled relative to the maximum volume among the currently displayed N bars (local scaling) and mapped to an integer range [1, 40] for any volume greater than zero, ensuring all non-zero volumes produce a visible bar.  
+6.4 Unused vertical bar height shall be rendered as whitespace, preserving vertical alignment across all displayed bars.  
+6.5 Colour coding shall reflect price direction:  
 - Green = close ≥ open  
 - Red = close < open  
 
-6.4 Bar heights shall be proportional to the largest volume among the currently displayed N bars (local scaling).  
-6.5 Display shall remain minimal and readable, with consistent spacing between bars.  
-6.6 Stepping or datetime selection shall update the ASCII volume display immediately.
+6.6 Display shall remain minimal and readable, with consistent spacing between bars.  
+6.7 Stepping or datetime selection shall update the ASCII volume display immediately.  
 
 ## 7. Verbose Output (Numeric OHLC + Volume)
 7.1 Verbose mode shall be toggled exclusively via the *verbose* command.  

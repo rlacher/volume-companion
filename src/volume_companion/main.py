@@ -7,6 +7,7 @@ import argparse
 from pathlib import Path
 
 from volume_companion.cli import VolumeCLI
+from volume_companion.formatter import Formatter
 from volume_companion.session_state import SessionState
 
 
@@ -32,8 +33,9 @@ def main() -> None:
     """CLI entrypoint."""
     csv_path = parse_args()
     session_state = SessionState()
+    formatter = Formatter()
 
-    VolumeCLI(csv_path, session_state).cmdloop()
+    VolumeCLI(csv_path, session_state, formatter).cmdloop()
 
 
 if __name__ == "__main__":

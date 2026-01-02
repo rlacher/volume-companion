@@ -8,6 +8,7 @@ import pytest
 
 from volume_companion.cli import VolumeCLI
 from volume_companion.session_state import SessionState
+from volume_companion.formatter import Formatter
 
 SUBPROCESS_TIMEOUT_SECONDS = 5
 
@@ -55,7 +56,8 @@ def test_do_config_outputs_state(capsys) -> None:
     """
     cli = VolumeCLI(
         csv_path=Path("dummy.csv"),
-        state=SessionState()
+        state=SessionState(),
+        formatter=Formatter()
     )
 
     cli.do_config("")

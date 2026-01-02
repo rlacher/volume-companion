@@ -4,9 +4,12 @@
 
 import cmd
 from pathlib import Path
+from typing import List
 
 from pydantic_core import ValidationError
+from volume_companion.bar import Bar
 from volume_companion.session_state import SessionState
+from volume_companion.formatter import Formatter
 
 
 class VolumeCLI(cmd.Cmd):
@@ -15,11 +18,16 @@ class VolumeCLI(cmd.Cmd):
     intro = "Volume Companion - type 'help' or 'quit'"
     prompt = "> "
 
-    def __init__(self, csv_path: Path, state: SessionState) -> None:
-        """Initialise CLI with injected session state."""
+    def __init__(
+            self,
+            csv_path: Path,
+            state: SessionState,
+            formatter: Formatter) -> None:
+        """Initialise CLI with injected dependencies."""
         super().__init__()
         self.csv_path = csv_path
         self.state = state
+        self.formatter = formatter
 
         print(f"Loaded CSV: {csv_path.name}")
 
@@ -57,11 +65,13 @@ class VolumeCLI(cmd.Cmd):
         """Query datetime: datetime <YYYY.MM.DD,HH:MM>"""
         self.state.selected_datetime = arg
         print(f"selected_datetime={self.state.selected_datetime}")
-        self._query_datetime()
+        bars = self._query_datetime()
+        self._render(bars)
 
     def do_step(self, arg: str) -> None:
         """Advance one bar: step"""
-        self._step()
+        bars = self._step()
+        self._render(bars)
 
     def do_quit(self, arg: str) -> bool:
         """Exit the tool: quit"""
@@ -80,10 +90,18 @@ class VolumeCLI(cmd.Cmd):
         """Ignore empty input."""
         return False
 
-    def _query_datetime(self) -> None:
+    def _query_datetime(self) -> List[Bar] | None:
         """Query data for current datetime (placeholder)."""
         print("Queried data (placeholder)")
+        return None
 
-    def _step(self) -> None:
+    def _step(self) -> List[Bar] | None:
         """Advance to next bar (placeholder)."""
         print("Step executed (placeholder)")
+        return None
+
+    def _render(self, bars) -> None:
+        """Render current bars using formatter."""
+        print(self.formatter.format_ascii_volume(bars))
+        if self.state.verbose:
+            print(self.formatter.format_verbose(bars))
