@@ -5,6 +5,7 @@
 import subprocess
 from pathlib import Path
 import pytest
+from unittest.mock import Mock
 
 from volume_companion.cli import VolumeCLI
 from volume_companion.session_state import SessionState
@@ -54,10 +55,12 @@ def test_do_config_outputs_state(capsys) -> None:
     Verifies that the CLI exposes current session state via logging
     without asserting on exact formatting.
     """
+    mock_data_store = Mock()
+
     cli = VolumeCLI(
-        csv_path=Path("dummy.csv"),
         state=SessionState(),
-        formatter=Formatter()
+        formatter=Formatter(),
+        data_store=mock_data_store
     )
 
     cli.do_config("")
@@ -67,3 +70,4 @@ def test_do_config_outputs_state(capsys) -> None:
     assert "bars=" in captured.out
     assert "offset=" in captured.out
     assert "verbose=" in captured.out
+    mock_data_store.assert_not_called()

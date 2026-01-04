@@ -3,13 +3,12 @@
 """Prompt-based CLI interface."""
 
 import cmd
-from pathlib import Path
-from typing import List
 
 from pydantic_core import ValidationError
 from volume_companion.bar import Bar
 from volume_companion.session_state import SessionState
 from volume_companion.formatter import Formatter
+from volume_companion.data_store import DataStore
 
 
 class VolumeCLI(cmd.Cmd):
@@ -20,16 +19,14 @@ class VolumeCLI(cmd.Cmd):
 
     def __init__(
             self,
-            csv_path: Path,
             state: SessionState,
-            formatter: Formatter) -> None:
+            formatter: Formatter,
+            data_store: DataStore) -> None:
         """Initialise CLI with injected dependencies."""
         super().__init__()
-        self.csv_path = csv_path
         self.state = state
         self.formatter = formatter
-
-        print(f"Loaded CSV: {csv_path.name}")
+        self.data_store = data_store
 
     def do_bars(self, arg: str) -> None:
         """Set number of displayed bars: bars <int>"""
@@ -90,15 +87,56 @@ class VolumeCLI(cmd.Cmd):
         """Ignore empty input."""
         return False
 
-    def _query_datetime(self) -> List[Bar] | None:
-        """Query data for current datetime (placeholder)."""
-        print("Queried data (placeholder)")
-        return None
+    def _query_datetime(self) -> tuple[Bar, ...]:
+        """Query data for current datetime"""
+        user_dt = self.state.selected_datetime
+        if not user_dt:
+            raise ValueError("No valid datetime selected")
 
-    def _step(self) -> List[Bar] | None:
-        """Advance to next bar (placeholder)."""
-        print("Step executed (placeholder)")
-        return None
+        raw_dt = self.state.to_raw_datetime()
+
+        bars = self.data_store.get_slice(raw_dt, self.state.bars)
+        if not bars:
+            raise ValueError("Timestamp before start of data")
+
+        last_bar = bars[-1]
+        self.state.selected_datetime = self.state.to_local_datetime(
+            last_bar.timestamp
+        )
+
+        if last_bar.timestamp != raw_dt:
+            print(
+                f"Note: No bar exactly at {user_dt}. "
+                f"Showing last {len(bars)} bars ending at "
+                f"{self.state.selected_datetime}."
+            )
+
+        if len(bars) < self.state.bars:
+            print(
+                f"Note: Only {len(bars)} bars available "
+                f"(requested {self.state.bars})."
+            )
+
+        return tuple(bars)
+
+    def _step(self) -> tuple[Bar, ...]:
+        """Advance to the next bar."""
+        user_dt = self.state.selected_datetime
+        if not user_dt:
+            raise ValueError("No valid datetime selected")
+
+        bars = self.data_store.next_slice(
+            self.state.to_raw_datetime(),
+            self.state.bars,
+        )
+
+        if bars is None:
+            raise ValueError("Already at last bar")
+
+        self.state.selected_datetime = self.state.to_local_datetime(
+            bars[-1].timestamp
+        )
+        return tuple(bars)
 
     def _render(self, bars) -> None:
         """Render current bars using formatter."""

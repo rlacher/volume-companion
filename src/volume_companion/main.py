@@ -9,6 +9,7 @@ from pathlib import Path
 from volume_companion.cli import VolumeCLI
 from volume_companion.formatter import Formatter
 from volume_companion.session_state import SessionState
+from volume_companion.data_store import DataStore
 
 
 def parse_args() -> Path:
@@ -34,8 +35,14 @@ def main() -> None:
     csv_path = parse_args()
     session_state = SessionState()
     formatter = Formatter()
+    data_store = DataStore.load_dummy(10)
+    print(f"Loaded CSV file {csv_path.name} with {data_store.bar_count} bars")
 
-    VolumeCLI(csv_path, session_state, formatter).cmdloop()
+    VolumeCLI(
+        session_state,
+        formatter,
+        data_store
+    ).cmdloop()
 
 
 if __name__ == "__main__":

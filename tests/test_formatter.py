@@ -4,7 +4,6 @@
 
 import re
 from datetime import datetime
-from typing import List
 
 import pytest
 
@@ -28,7 +27,7 @@ class DummyBar:
 
     def __init__(self, volume: float, open_: float, close: float) -> None:
         self.volume = volume
-        self.open = open_
+        self.open_ = open_
         self.close = close
         self.high = max(open_, close)
         self.low = min(open_, close)
@@ -53,7 +52,7 @@ def bar_factory():
 
 
 @pytest.fixture
-def bars_mixed(bar_factory) -> List[DummyBar]:
+def bars_mixed(bar_factory) -> tuple[DummyBar]:
     """Bars with mixed volume and candle direction."""
     return [
         bar_factory(volume=10, open_=1.0, close=1.1),  # up
@@ -63,7 +62,7 @@ def bars_mixed(bar_factory) -> List[DummyBar]:
 
 
 @pytest.fixture
-def bars_identical(bar_factory) -> List[DummyBar]:
+def bars_identical(bar_factory) -> tuple[DummyBar]:
     """Bars with identical volume."""
     return [
         bar_factory(volume=30, open_=1.0, close=1.2),

@@ -62,7 +62,7 @@ class Formatter:
                     char = cls._BLOCKS[remaining - 1]
 
                 if use_colour and char != " ":
-                    colour = cls._GREEN if bar.close >= bar.open else cls._RED
+                    colour = cls._GREEN if bar.close >= bar.open_ else cls._RED
                     char = f"{colour}{char}{cls._RESET}"
 
                 line_chars.append(char)
@@ -77,10 +77,10 @@ class Formatter:
         return "\n".join(
             (
                 f"{bar.timestamp:%Y-%m-%d %H:%M} | "
-                f"O:{bar.open:.4f} H:{bar.high:.4f} "
+                f"O:{bar.open_:.4f} H:{bar.high:.4f} "
                 f"L:{bar.low:.4f} C:{bar.close:.4f} | "
                 f"Vol:{int(bar.volume)} | "
-                f"{'↑' if bar.close >= bar.open else '↓'}"
+                f"{'↑' if bar.close >= bar.open_ else '↓'}"
             )
             for bar in bars
         )

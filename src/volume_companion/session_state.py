@@ -29,12 +29,17 @@ class SessionState(BaseModel):
                 "Invalid datetime format, expected YYYY-MM-DDTHH:MM"
             )
 
-    def adjusted_datetime(self) -> datetime | None:
-        """Selected datetime adjusted by timezone offset for internal raw
-        data lookup."""
+    def to_raw_datetime(self) -> datetime | None:
+        """Convert user-selected datetime to raw CSV datetime for lookup."""
         if self.selected_datetime is None:
             return None
         return self.selected_datetime + timedelta(hours=self.offset)
+
+    def to_local_datetime(self, raw_dt: datetime | None) -> datetime | None:
+        """Convert raw CSV datetime back to user-local datetime."""
+        if raw_dt is None:
+            return None
+        return raw_dt - timedelta(hours=self.offset)
 
     model_config = ConfigDict(
         validate_assignment=True
