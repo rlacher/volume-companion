@@ -40,5 +40,5 @@ class Bar(BaseModel):
     model_config = ConfigDict(
         frozen=True,
         validate_assignment=True,
-        slots=True
+        slots=True  # type: ignore[typeddict-unknown-key]
     )

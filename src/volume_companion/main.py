@@ -33,9 +33,11 @@ def parse_args() -> Path:
 def main() -> None:
     """CLI entrypoint."""
     csv_path = parse_args()
+
     session_state = SessionState()
     formatter = Formatter()
     data_store = DataStore.load_dummy(10)
+
     print(f"Loaded CSV file {csv_path.name} with {data_store.bar_count} bars")
 
     VolumeCLI(
