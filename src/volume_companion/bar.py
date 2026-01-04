@@ -39,5 +39,6 @@ class Bar(BaseModel):
 
     model_config = ConfigDict(
         frozen=True,
-        validate_assignment=True
+        validate_assignment=True,
+        slots=True
     )
