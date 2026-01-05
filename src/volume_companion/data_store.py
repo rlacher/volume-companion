@@ -43,22 +43,18 @@ class DataStore:
         """
         idx = bisect.bisect_right(self._timestamps, end_dt) - 1
         if idx < 0:
-            return tuple()
+            return ()
         start = max(0, idx - n + 1)
         return self._bars[start:idx + 1]
 
-    def next_slice(
-        self,
-        current_dt: dt.datetime,
-        n: int
-    ) -> tuple[Bar, ...] | None:
+    def next_slice(self, current_dt: dt.datetime, n: int) -> tuple[Bar, ...]:
         """
         Return the next window of n bars after current_dt.
-        Returns None if already at last bar.
+        Returns empty tuple if already at last bar.
         """
         idx = bisect.bisect_right(self._timestamps, current_dt)
         if idx >= len(self._bars):
-            return None
+            return ()
         next_end_dt = self._timestamps[idx]
         return self.get_slice(next_end_dt, n)
 

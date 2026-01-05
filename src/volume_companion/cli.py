@@ -63,12 +63,14 @@ class VolumeCLI(cmd.Cmd):
         self.state.selected_datetime = arg
         print(f"selected_datetime={self.state.selected_datetime}")
         bars = self._query_datetime()
-        self._render(bars)
+        if bars:
+            self._render(bars)
 
     def do_step(self, arg: str) -> None:
         """Advance one bar: step"""
         bars = self._step()
-        self._render(bars)
+        if bars:
+            self._render(bars)
 
     def do_quit(self, arg: str) -> bool:
         """Exit the tool: quit"""
@@ -94,10 +96,13 @@ class VolumeCLI(cmd.Cmd):
             raise ValueError("No valid datetime selected")
 
         raw_dt = self.state.to_raw_datetime()
-
         bars = self.data_store.get_slice(raw_dt, self.state.bars)
+
         if not bars:
-            raise ValueError("Timestamp before start of data")
+            print(
+                "No data: Selected datetime is before the first available bar"
+            )
+            return bars
 
         last_bar = bars[-1]
         self.state.selected_datetime = self.state.to_local_datetime(
@@ -117,7 +122,7 @@ class VolumeCLI(cmd.Cmd):
                 f"(requested {self.state.bars})."
             )
 
-        return tuple(bars)
+        return bars
 
     def _step(self) -> tuple[Bar, ...]:
         """Advance to the next bar."""
@@ -130,13 +135,14 @@ class VolumeCLI(cmd.Cmd):
             self.state.bars,
         )
 
-        if bars is None:
-            raise ValueError("Already at last bar")
+        if bars:
+            self.state.selected_datetime = self.state.to_local_datetime(
+                bars[-1].timestamp
+            )
+        else:
+            print("Already at last bar")
 
-        self.state.selected_datetime = self.state.to_local_datetime(
-            bars[-1].timestamp
-        )
-        return tuple(bars)
+        return bars
 
     def _render(self, bars) -> None:
         """Render current bars using formatter."""
