@@ -5,6 +5,8 @@
 from __future__ import annotations
 import bisect
 import datetime as dt
+from pathlib import Path
+import csv
 
 from volume_companion.bar import Bar
 
@@ -20,20 +22,61 @@ class DataStore:
         self._timestamps: list[dt.datetime] = [b.timestamp for b in self._bars]
 
     @classmethod
-    def load_dummy(cls, count: int = 20) -> DataStore:
-        """Create deterministic dummy bars for development."""
-        now = dt.datetime.now().replace(second=0, microsecond=0)
-        bars = [
-            Bar(
-                timestamp=now - dt.timedelta(minutes=i),
-                open_=1.0 + i * 0.001,
-                high=1.0 + i * 0.002,
-                low=0.99 + i * 0.001,
-                close=1.0 + i * 0.0015,
-                volume=1000 + i * 10,
-            )
-            for i in reversed(range(count))
-        ]
+    def load_csv(cls, path: str | Path) -> DataStore:
+        """
+        Load OHLCV bars from a CSV file of fixed format.
+
+        Malformed rows are skipped with a concise warning.
+        """
+        bars: list[Bar] = []
+
+        path = Path(path)
+        if not path.is_file():
+            raise FileNotFoundError(f"CSV file not found: {path}")
+
+        if path.suffix.lower() != ".csv":
+            print(f"Note: File does not have .csv extension: {path.name}")
+
+        timestamp_format = "%Y.%m.%d %H:%M"
+
+        with path.open(newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+
+            skipped = 0
+
+            for line_no, row in enumerate(reader, start=1):
+                if len(row) != 7:
+                    skipped += 1
+                    print(f"Skipping CSV row {line_no}: expected 7 columns")
+                    continue
+
+                try:
+                    timestamp = dt.datetime.strptime(
+                        f"{row[0]} {row[1]}",
+                        timestamp_format,
+                    )
+
+                    bars.append(
+                        Bar(
+                            timestamp=timestamp,
+                            open_=float(row[2]),
+                            high=float(row[3]),
+                            low=float(row[4]),
+                            close=float(row[5]),
+                            volume=float(row[6]),
+                        )
+                    )
+                except (ValueError, TypeError) as exc:
+                    skipped += 1
+                    print(f"Skipping CSV row {line_no}: {exc}")
+                    continue
+
+        if not bars:
+            raise ValueError("CSV contains no valid OHLCV rows")
+
+        if skipped:
+            print(f"Skipped {skipped} malformed CSV rows")
+
         return cls(bars)
 
     def get_slice(self, end_dt: dt.datetime, n: int) -> tuple[Bar, ...]:

@@ -22,8 +22,10 @@ def test_cli_smoke(tmp_path: Path) -> None:
     Verifies that the tool starts via the Poetry entry point, accepts basic
     commands, responds without crashing and exits cleanly.
     """
-    csv = tmp_path / "data.csv"
-    csv.write_text("2025.12.30,23:00,1.17449,1.17489,1.17447,1.17455,897\n")
+    csv_file = tmp_path / "data.csv"
+    csv_file.write_text(
+        "2025.12.30,23:00,1.17449,1.17489,1.17447,1.17455,897\n"
+    )
 
     commands = "\n".join(
         [
@@ -34,7 +36,7 @@ def test_cli_smoke(tmp_path: Path) -> None:
     ) + "\n"
 
     result = subprocess.run(
-        ["poetry", "run", "volume-companion", str(csv)],
+        ["poetry", "run", "volume-companion", str(csv_file)],
         input=commands,
         text=True,
         capture_output=True,

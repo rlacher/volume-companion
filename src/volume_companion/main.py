@@ -24,8 +24,6 @@ def parse_args() -> Path:
     args = parser.parse_args()
 
     path = Path(args.csv_path)
-    if not path.is_file():
-        raise FileNotFoundError(f"CSV file not found: {path}")
 
     return path
 
@@ -36,7 +34,7 @@ def main() -> None:
 
     session_state = SessionState()
     formatter = Formatter()
-    data_store = DataStore.load_dummy(10)
+    data_store = DataStore.load_csv(csv_path)
 
     print(f"Loaded CSV file {csv_path.name} with {data_store.bar_count} bars")
 
