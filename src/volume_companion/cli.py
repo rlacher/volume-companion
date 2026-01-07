@@ -60,7 +60,13 @@ class VolumeCLI(cmd.Cmd):
 
     def do_datetime(self, arg: str) -> None:
         """Query datetime: datetime <YYYY.MM.DD,HH:MM>"""
-        self.state.selected_datetime = arg
+        if arg.strip():
+            try:
+                self.state.selected_datetime = arg
+            except ValueError:
+                print(f"Invalid datetime format: {arg}")
+                return
+
         print(f"selected_datetime={self.state.selected_datetime}")
         bars = self._query_datetime()
         if bars:
@@ -93,7 +99,8 @@ class VolumeCLI(cmd.Cmd):
         """Query data for current datetime"""
         user_dt = self.state.selected_datetime
         if not user_dt:
-            raise ValueError("No valid datetime selected")
+            print("No valid datetime selected")
+            return ()
 
         raw_dt = self.state.to_raw_datetime()
         bars = self.data_store.get_slice(raw_dt, self.state.bars)
@@ -128,7 +135,8 @@ class VolumeCLI(cmd.Cmd):
         """Advance to the next bar."""
         user_dt = self.state.selected_datetime
         if not user_dt:
-            raise ValueError("No valid datetime selected")
+            print("No valid datetime selected")
+            return ()
 
         bars = self.data_store.next_slice(
             self.state.to_raw_datetime(),
