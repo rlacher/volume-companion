@@ -16,8 +16,8 @@ class Formatter:
     _LEVELS_PER_ROW = len(_BLOCKS)
     _MAX_LEVEL = _ROWS * _LEVELS_PER_ROW
 
-    _GREEN = "\033[92m"
-    _RED = "\033[91m"
+    _RED = "\033[38;2;255;118;143m"
+    _GREEN = "\033[38;2;112;247;210m"
     _RESET = "\033[0m"
 
     @staticmethod
