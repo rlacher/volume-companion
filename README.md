@@ -50,12 +50,12 @@ Type `help` to list available commands.
 
 Within the prompt you can configure the session, navigate through data, and display volume at specific points in time.
 
-- `datetime YYYY-MM-DDTHH:MM`: enter a datetime to display volume bars (ISO format)
-- `bars <int>`: set the number of displayed bars
-- `offset <int>`: set the time zone offset
-- `step`: advance to the next bar
-- `verbose`: toggle verbose output
-- `config`: show current session configuration (bars, offset, verbose mode)
+- `datetime [<YYYY-MM-DDTHH:MM>]`: Display volume bar window for previously selected datetime or jump to provided datetime (ISO format)
+- `bars <number>`: Set the number of displayed bars
+- `offset <hours>`: Set the time zone offset
+- `step [<number>]`: Advance one or multiple bars (number optional, defaults to 1)
+- `verbose`: Toggle verbose output
+- `config`: Show current session configuration (bars, offset, verbose mode)
 
 ## License
 
