@@ -59,8 +59,17 @@ class VolumeCLI(cmd.Cmd):
         )
 
     def do_datetime(self, arg: str) -> None:
-        """Query datetime: datetime <YYYY.MM.DD,HH:MM>"""
-        if arg.strip():
+        """Query volume data for selected datetime, optionally set it.
+
+        Usage:
+            datetime
+                Show volume data for the current selection.
+            datetime <YYYY-MM-DDTHH:MM>
+                Set selection and show its volume data.
+        """
+        arg = arg.strip()
+
+        if arg:
             try:
                 self.state.selected_datetime = arg
             except ValueError:
@@ -73,8 +82,20 @@ class VolumeCLI(cmd.Cmd):
             self._render(bars)
 
     def do_step(self, arg: str) -> None:
-        """Advance one bar: step"""
-        bars = self._step()
+        """Advance one or multiple bars: step, step <int>"""
+        arg = arg.strip()
+
+        try:
+            steps = 1 if not arg else int(arg)
+        except ValueError:
+            print(f"Invalid step value: {arg}")
+            return
+
+        if steps <= 0:
+            print(f"Step must be positive: {steps}")
+            return
+
+        bars = self._step(steps)
         if bars:
             self._render(bars)
 
@@ -131,8 +152,8 @@ class VolumeCLI(cmd.Cmd):
 
         return bars
 
-    def _step(self) -> tuple[Bar, ...]:
-        """Advance to the next bar."""
+    def _step(self, steps: int) -> tuple[Bar, ...]:
+        """Advance by `steps` bars from selected datetime."""
         user_dt = self.state.selected_datetime
         if not user_dt:
             print("No valid datetime selected")
@@ -140,6 +161,7 @@ class VolumeCLI(cmd.Cmd):
 
         bars = self.data_store.next_slice(
             self.state.to_raw_datetime(),
+            steps,
             self.state.bars,
         )
 

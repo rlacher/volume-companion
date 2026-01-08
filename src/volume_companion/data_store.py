@@ -90,16 +90,27 @@ class DataStore:
         start = max(0, idx - n + 1)
         return self._bars[start:idx + 1]
 
-    def next_slice(self, current_dt: dt.datetime, n: int) -> tuple[Bar, ...]:
+    def next_slice(
+        self,
+        current_dt: dt.datetime,
+        steps: int,
+        n: int,
+    ) -> tuple[Bar, ...]:
         """
-        Return the next window of n bars after current_dt.
-        Returns empty tuple if already at last bar.
+        Return the next window of n bars after current_dt,
+        advanced forward by `steps` bars.
+        Returns empty tuple if no further data is available.
         """
-        idx = bisect.bisect_right(self._timestamps, current_dt)
-        if idx >= len(self._bars):
+        if steps <= 0:
+            raise ValueError(f"Steps must be positive, got {steps}")
+
+        start_idx = bisect.bisect_right(self._timestamps, current_dt)
+        target_idx = start_idx + steps - 1
+
+        if target_idx >= len(self._bars):
             return ()
-        next_end_dt = self._timestamps[idx]
-        return self.get_slice(next_end_dt, n)
+
+        return self.get_slice(self._timestamps[target_idx], n)
 
     @property
     def bar_count(self) -> int:
