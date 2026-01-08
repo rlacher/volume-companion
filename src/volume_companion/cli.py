@@ -76,7 +76,6 @@ class VolumeCLI(cmd.Cmd):
                 print(f"Invalid datetime format: {arg}")
                 return
 
-        print(f"selected_datetime={self.state.selected_datetime}")
         bars = self._query_datetime()
         if bars:
             self._render(bars)
@@ -128,7 +127,7 @@ class VolumeCLI(cmd.Cmd):
 
         if not bars:
             print(
-                "No data: Selected datetime is before the first available bar"
+                "Selected datetime is before the first available bar"
             )
             return bars
 
@@ -136,17 +135,18 @@ class VolumeCLI(cmd.Cmd):
         self.state.selected_datetime = self.state.to_local_datetime(
             last_bar.timestamp
         )
+        print(f"selected_datetime={self.state.selected_datetime}")
 
         if last_bar.timestamp != raw_dt:
             print(
-                f"Note: No bar exactly at {user_dt}. "
+                f"No bar exactly at {user_dt}. "
                 f"Showing last {len(bars)} bars ending at "
                 f"{self.state.selected_datetime}."
             )
 
         if len(bars) < self.state.bars:
             print(
-                f"Note: Only {len(bars)} bars available "
+                f"Only {len(bars)} bars available "
                 f"(requested {self.state.bars})."
             )
 
@@ -169,8 +169,9 @@ class VolumeCLI(cmd.Cmd):
             self.state.selected_datetime = self.state.to_local_datetime(
                 bars[-1].timestamp
             )
+            print(f"selected_datetime={self.state.selected_datetime}")
         else:
-            print("Already at last bar")
+            print("Step exceeds available bars")
 
         return bars
 

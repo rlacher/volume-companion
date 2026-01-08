@@ -35,7 +35,7 @@ class DataStore:
             raise FileNotFoundError(f"CSV file not found: {path}")
 
         if path.suffix.lower() != ".csv":
-            print(f"Note: File does not have .csv extension: {path.name}")
+            print(f"Loading file without CSV extension: {path.name}")
 
         timestamp_format = "%Y.%m.%d %H:%M"
 
