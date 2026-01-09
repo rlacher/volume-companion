@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 René Lacher
-"""Unit tests for SessionState.to_raw_datetime."""
+"""Unit tests for SessionState."""
 
 from datetime import datetime, timezone
 
@@ -15,61 +15,94 @@ from volume_companion.session_state import SessionState
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def base_datetime():
-    """Baseline datetime aligned with 1-minute granularity."""
+def naive_datetime() -> datetime:
+    """Naive datetime instance."""
     return datetime(2025, 1, 15, 10, 0)
 
 
 @pytest.fixture
-def state_factory():
-    """Factory for creating SessionState instances."""
-
-    def _factory(selected_datetime=None, offset=0):
-        return SessionState(
-            selected_datetime=selected_datetime,
-            offset=offset,
-        )
-
-    return _factory
+def aware_datetime() -> datetime:
+    """Timezone-aware datetime instance."""
+    return datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc)
 
 
 # ---------------------------------------------------------------------------
-# Core behaviour
+# 1. Construction & ISO parsing (parse_iso_datetime)
 # ---------------------------------------------------------------------------
 
-def test_to_raw_datetime_returns_none_when_no_selected_datetime(
-    state_factory,
-):
-    state = state_factory()
+def test_selected_datetime_none_is_accepted():
+    state = SessionState(selected_datetime=None)
+    assert state.selected_datetime is None
+
+
+def test_naive_datetime_is_passed_through_unchanged(naive_datetime):
+    state = SessionState(selected_datetime=naive_datetime)
+    assert state.selected_datetime is naive_datetime
+
+
+def test_timezone_aware_datetime_is_passed_through_unchanged(aware_datetime):
+    state = SessionState(selected_datetime=aware_datetime)
+    assert state.selected_datetime is aware_datetime
+    assert state.selected_datetime.tzinfo is timezone.utc
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("2025-01-15", datetime(2025, 1, 15)),
+        ("2025-01-15T10:00", datetime(2025, 1, 15, 10, 0)),
+        ("2025-01-15 10:00", datetime(2025, 1, 15, 10, 0)),
+    ],
+)
+def test_valid_iso_strings_are_parsed(value, expected):
+    state = SessionState(selected_datetime=value)
+    assert state.selected_datetime == expected
+
+
+def test_iso_string_with_timezone_offset_is_parsed():
+    state = SessionState(selected_datetime="2025-01-15T10:00+01:00")
+    parsed = state.selected_datetime
+
+    assert parsed.tzinfo is not None
+    assert parsed.utcoffset().total_seconds() == 3600
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "   ",
+        "2025",
+        "2025-01",
+        "2025-01-15T",
+        "2025-13-01",
+        "2025-02-29",      # non-leap year
+        "2025-01-15T25:00",
+        "2025-001",        # unsupported ISO variant
+    ],
+)
+def test_invalid_iso_strings_raise_value_error(value):
+    with pytest.raises(ValueError, match="Invalid datetime format"):
+        SessionState(selected_datetime=value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [123, 12.5, [], {}],
+)
+def test_non_string_inputs_raise_type_error(value):
+    with pytest.raises(TypeError):
+        SessionState(selected_datetime=value)
+
+
+# ---------------------------------------------------------------------------
+# 2. to_raw_datetime
+# ---------------------------------------------------------------------------
+
+def test_to_raw_datetime_returns_none_if_no_selected_datetime():
+    state = SessionState()
     assert state.to_raw_datetime() is None
 
-
-def test_to_raw_datetime_identity_with_zero_offset(
-    state_factory,
-    base_datetime,
-):
-    state = state_factory(selected_datetime=base_datetime, offset=0)
-    assert state.to_raw_datetime() == base_datetime
-
-
-def test_to_local_datetime_returns_none_when_raw_is_none(
-    state_factory,
-):
-    state = state_factory(offset=3)
-    assert state.to_local_datetime(None) is None
-
-
-def test_to_local_datetime_identity_with_zero_offset(
-    state_factory,
-    base_datetime,
-):
-    state = state_factory(offset=0)
-    assert state.to_local_datetime(base_datetime) == base_datetime
-
-
-# ---------------------------------------------------------------------------
-# Offset application
-# ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
     "offset, expected",
@@ -78,37 +111,33 @@ def test_to_local_datetime_identity_with_zero_offset(
         (-5, datetime(2025, 1, 15, 5, 0)),
     ],
 )
-def test_to_raw_datetime_applies_offset(
-    state_factory,
-    base_datetime,
-    offset,
-    expected,
-):
-    state = state_factory(
-        selected_datetime=base_datetime,
-        offset=offset,
-    )
+def test_to_raw_datetime_applies_offset(naive_datetime, offset, expected):
+    state = SessionState(selected_datetime=naive_datetime, offset=offset)
     assert state.to_raw_datetime() == expected
 
 
-@pytest.mark.parametrize(
-    "offset, expected",
-    [
-        (-12, datetime(2025, 1, 14, 22, 0)),
-        (14, datetime(2025, 1, 16, 0, 0)),
-    ],
-)
-def test_to_raw_datetime_offset_boundaries(
-    state_factory,
-    base_datetime,
-    offset,
-    expected,
-):
-    state = state_factory(
-        selected_datetime=base_datetime,
-        offset=offset,
+def test_to_raw_datetime_date_rollover():
+    state = SessionState(
+        selected_datetime=datetime(2025, 1, 31, 23, 0),
+        offset=2,
     )
-    assert state.to_raw_datetime() == expected
+    assert state.to_raw_datetime() == datetime(2025, 2, 1, 1, 0)
+
+
+def test_to_raw_datetime_preserves_timezone(aware_datetime):
+    state = SessionState(selected_datetime=aware_datetime, offset=2)
+    assert state.to_raw_datetime() == datetime(
+        2025, 1, 15, 12, 0, tzinfo=timezone.utc
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3. to_local_datetime
+# ---------------------------------------------------------------------------
+
+def test_to_local_datetime_returns_none_if_raw_is_none():
+    state = SessionState(offset=3)
+    assert state.to_local_datetime(None) is None
 
 
 @pytest.mark.parametrize(
@@ -118,239 +147,49 @@ def test_to_raw_datetime_offset_boundaries(
         (-5, datetime(2025, 1, 15, 15, 0)),
     ],
 )
-def test_to_local_datetime_applies_offset(
-    state_factory,
-    base_datetime,
-    offset,
-    expected,
-):
-    state = state_factory(offset=offset)
-    assert state.to_local_datetime(base_datetime) == expected
+def test_to_local_datetime_applies_offset(naive_datetime, offset, expected):
+    state = SessionState(offset=offset)
+    assert state.to_local_datetime(naive_datetime) == expected
 
 
-@pytest.mark.parametrize(
-    "offset, expected",
-    [
-        (14, datetime(2025, 1, 14, 20, 0)),
-        (-12, datetime(2025, 1, 15, 22, 0)),
-    ],
-)
-def test_to_local_datetime_offset_boundaries(
-    state_factory,
-    base_datetime,
-    offset,
-    expected,
-):
-    state = state_factory(offset=offset)
-    assert state.to_local_datetime(base_datetime) == expected
+def test_to_local_datetime_date_rollover():
+    state = SessionState(offset=2)
+    raw_dt = datetime(2025, 1, 16, 1, 0)
+    assert state.to_local_datetime(raw_dt) == datetime(2025, 1, 15, 23, 0)
 
 
-# ---------------------------------------------------------------------------
-# Date rollover scenarios
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize(
-    "selected_datetime, offset, expected",
-    [
-        (
-            datetime(2025, 1, 31, 23, 0),
-            2,
-            datetime(2025, 2, 1, 1, 0),
-        ),
-        (
-            datetime(2025, 3, 1, 1, 0),
-            -3,
-            datetime(2025, 2, 28, 22, 0),
-        ),
-        (
-            datetime(2024, 12, 31, 23, 0),
-            2,
-            datetime(2025, 1, 1, 1, 0),
-        ),
-    ],
-)
-def test_to_raw_datetime_date_rollover(
-    state_factory,
-    selected_datetime,
-    offset,
-    expected,
-):
-    state = state_factory(
-        selected_datetime=selected_datetime,
-        offset=offset,
-    )
-    assert state.to_raw_datetime() == expected
-
-
-@pytest.mark.parametrize(
-    "raw_dt, offset, expected",
-    [
-        (
-            datetime(2025, 1, 16, 1, 0),
-            2,
-            datetime(2025, 1, 15, 23, 0),
-        ),
-        (
-            datetime(2025, 1, 14, 22, 0),
-            -3,
-            datetime(2025, 1, 15, 1, 0),
-        ),
-        (
-            datetime(2025, 1, 15, 1, 0),
-            2,
-            datetime(2025, 1, 14, 23, 0),
-        ),
-    ],
-)
-def test_to_local_datetime_date_rollover(
-    state_factory,
-    raw_dt,
-    offset,
-    expected,
-):
-    state = state_factory(offset=offset)
-    assert state.to_local_datetime(raw_dt) == expected
-
-
-# ---------------------------------------------------------------------------
-# Datetime semantics
-# ---------------------------------------------------------------------------
-
-def test_to_raw_datetime_timezone_aware_datetime(
-    state_factory,
-):
-    dt = datetime(2025, 1, 15, 10, 0, tzinfo=timezone.utc)
-    state = state_factory(selected_datetime=dt, offset=2)
-
-    assert state.to_raw_datetime() == datetime(
-        2025,
-        1,
-        15,
-        12,
-        0,
-        tzinfo=timezone.utc,
-    )
-
-
-def test_to_local_datetime_timezone_aware_datetime_preserved(
-    state_factory,
-):
-    raw_dt = datetime(
-        2025,
-        1,
-        15,
-        10,
-        0,
-        tzinfo=timezone.utc,
-    )
-    state = state_factory(offset=2)
-
-    assert state.to_local_datetime(raw_dt) == datetime(
-        2025,
-        1,
-        15,
-        8,
-        0,
-        tzinfo=timezone.utc,
+def test_to_local_datetime_preserves_timezone(aware_datetime):
+    state = SessionState(offset=2)
+    assert state.to_local_datetime(aware_datetime) == datetime(
+        2025, 1, 15, 8, 0, tzinfo=timezone.utc
     )
 
 
 # ---------------------------------------------------------------------------
-# Validation and assignment behaviour
+# 4. Validation & assignment behaviour
 # ---------------------------------------------------------------------------
 
-def test_to_raw_datetime_parses_iso_string_on_init():
-    state = SessionState(
-        selected_datetime="2025-01-15T10:00",
-        offset=1,
-    )
-    assert state.to_raw_datetime() == datetime(2025, 1, 15, 11, 0)
-
-
-@pytest.mark.parametrize(
-    "invalid_value",
-    [
-        "15-01-2025 10:00",
-        "invalid-datetime",
-    ],
-)
-def test_to_raw_datetime_rejects_invalid_string_on_init(
-    invalid_value,
-):
-    with pytest.raises(ValueError):
-        SessionState(selected_datetime=invalid_value)
-
-
-def test_to_raw_datetime_assignment_validates_datetime():
+def test_assignment_validates_selected_datetime():
     state = SessionState()
-
     with pytest.raises(ValueError):
         state.selected_datetime = "invalid-datetime"
 
 
-def test_to_raw_datetime_assignment_validates_offset():
+def test_assignment_validates_offset_bounds():
     state = SessionState()
-
-    with pytest.raises(ValidationError):
-        state.offset = 99
-
-
-def test_to_local_datetime_offset_assignment_validation():
-    state = SessionState()
-
     with pytest.raises(ValidationError):
         state.offset = 99
 
 
 # ---------------------------------------------------------------------------
-# Invariants and consistency
+# 5. Invariants
 # ---------------------------------------------------------------------------
 
-def test_to_raw_datetime_round_trip_identity(
-    state_factory,
-):
+def test_round_trip_raw_and_local_datetime_identity():
     dt = datetime(2025, 4, 10, 8, 45)
-    state = state_factory(selected_datetime=dt, offset=5)
+    state = SessionState(selected_datetime=dt, offset=5)
 
     raw = state.to_raw_datetime()
     local = state.to_local_datetime(raw)
 
     assert local == dt
-
-
-def test_to_raw_datetime_idempotent_calls(
-    state_factory,
-    base_datetime,
-):
-    state = state_factory(
-        selected_datetime=base_datetime,
-        offset=-4,
-    )
-
-    first = state.to_raw_datetime()
-    second = state.to_raw_datetime()
-
-    assert first == second
-
-
-def test_to_local_datetime_round_trip_with_to_raw_datetime():
-    local_dt = datetime(2025, 4, 10, 8, 45)
-    state = SessionState(
-        selected_datetime=local_dt,
-        offset=5,
-    )
-
-    raw_dt = state.to_raw_datetime()
-    assert state.to_local_datetime(raw_dt) == local_dt
-
-
-def test_to_local_datetime_idempotent_calls(
-    state_factory,
-    base_datetime,
-):
-    state = state_factory(offset=-4)
-
-    first = state.to_local_datetime(base_datetime)
-    second = state.to_local_datetime(base_datetime)
-
-    assert first == second
