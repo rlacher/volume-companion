@@ -39,8 +39,8 @@ class DataStore:
 
         timestamp_format = "%Y.%m.%d %H:%M"
 
-        with path.open(newline="", encoding="utf-8") as f:
-            reader = csv.reader(f)
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            reader = csv.reader(f, delimiter=",")
 
             skipped = 0
 
