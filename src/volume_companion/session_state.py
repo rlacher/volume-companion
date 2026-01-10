@@ -7,7 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SessionState(BaseModel):
-    """Holds current interactive session configuration."""
+    """Holds current interactive session configuration.
+
+    Any timezone info on selected_datetime is preserved but ignored in
+    offset calculations.
+    """
     bars: int = Field(default=10, ge=1, le=100)
     offset: int = Field(default=0, ge=-12, le=14)
     verbose: bool = False
@@ -29,17 +33,22 @@ class SessionState(BaseModel):
                 "Invalid datetime format, expected YYYY-MM-DDTHH:MM"
             )
 
-    def to_raw_datetime(self) -> datetime | None:
-        """Convert user-selected datetime to raw CSV datetime for lookup."""
+    @property
+    def as_server_datetime(self) -> datetime | None:
+        """Convert user-selected datetime to server datetime for CSV lookup."""
         if self.selected_datetime is None:
             return None
         return self.selected_datetime + timedelta(hours=self.offset)
 
-    def to_local_datetime(self, raw_dt: datetime | None) -> datetime | None:
-        """Convert raw CSV datetime back to user-local datetime."""
+    def set_from_server_datetime(
+        self,
+        raw_dt: datetime | None
+    ) -> None:
+        """Set selected_datetime from server datetime with offset applied."""
         if raw_dt is None:
-            return None
-        return raw_dt - timedelta(hours=self.offset)
+            self.selected_datetime = None
+            return
+        self.selected_datetime = raw_dt - timedelta(hours=self.offset)
 
     model_config = ConfigDict(
         validate_assignment=True

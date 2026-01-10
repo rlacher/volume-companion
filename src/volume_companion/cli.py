@@ -122,8 +122,8 @@ class VolumeCLI(cmd.Cmd):
             print("No valid datetime selected")
             return ()
 
-        raw_dt = self.state.to_raw_datetime()
-        bars = self.data_store.get_slice(raw_dt, self.state.bars)
+        server_dt = self.state.as_server_datetime
+        bars = self.data_store.get_slice(server_dt, self.state.bars)
 
         if not bars:
             print(
@@ -132,12 +132,10 @@ class VolumeCLI(cmd.Cmd):
             return bars
 
         last_bar = bars[-1]
-        self.state.selected_datetime = self.state.to_local_datetime(
-            last_bar.timestamp
-        )
+        self.state.set_from_server_datetime(last_bar.timestamp)
         print(f"selected_datetime={self.state.selected_datetime}")
 
-        if last_bar.timestamp != raw_dt:
+        if last_bar.timestamp != server_dt:
             print(
                 f"No bar exactly at {user_dt}. "
                 f"Showing last {len(bars)} bars ending at "
@@ -160,15 +158,14 @@ class VolumeCLI(cmd.Cmd):
             return ()
 
         bars = self.data_store.next_slice(
-            self.state.to_raw_datetime(),
+            self.state.as_server_datetime,
             steps,
             self.state.bars,
         )
 
         if bars:
-            self.state.selected_datetime = self.state.to_local_datetime(
-                bars[-1].timestamp
-            )
+            last_bar = bars[-1].timestamp
+            self.state.set_from_server_datetime(last_bar.timestamp)
             print(f"selected_datetime={self.state.selected_datetime}")
         else:
             print("Step exceeds available bars")
