@@ -5,6 +5,8 @@
 from datetime import datetime, timedelta
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+DEFAULT_BARS = 24
+
 
 class SessionState(BaseModel):
     """Holds current interactive session configuration.
@@ -12,7 +14,7 @@ class SessionState(BaseModel):
     Any timezone info on selected_datetime is preserved but ignored in
     offset calculations.
     """
-    bars: int = Field(default=10, ge=1, le=100)
+    bars: int = Field(default=DEFAULT_BARS, ge=1, le=100)
     offset: int = Field(default=0, ge=-12, le=14)
     verbose: bool = False
     selected_datetime: datetime | None = None
