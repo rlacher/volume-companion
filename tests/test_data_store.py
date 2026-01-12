@@ -194,23 +194,6 @@ def test_load_csv_multiple_rows_sorted(write_csv):
 
 
 # ---------------------------------------------------------------------------
-# Mixed Valid / Invalid Rows
-# ---------------------------------------------------------------------------
-
-def test_load_csv_mixed_rows(write_csv, capsys, valid_row):
-    rows = [
-        valid_row,
-        "2024.01.01,00:00,abc,3,1,2,5",  # invalid
-        valid_row,
-    ]
-    path = write_csv("mixed.csv", rows)
-    ds = DataStore.load_csv(path)
-    assert ds.bar_count == 2
-    output = capsys.readouterr().out
-    assert "Skipped 1 malformed CSV rows" in output
-
-
-# ---------------------------------------------------------------------------
 # All Rows Invalid
 # ---------------------------------------------------------------------------
 
@@ -244,16 +227,39 @@ def test_load_csv_header_row_is_skipped(write_csv, capsys, valid_row):
 # Duplicate Timestamps
 # ---------------------------------------------------------------------------
 
-def test_load_csv_duplicate_timestamps(write_csv):
+def test_load_csv_duplicate_timestamps_raises(write_csv):
     rows = [
-        "2024.01.01,00:00,1,3,1,2,5",
-        "2024.01.01,00:00,6,9,7,8,10",
+        "2024.01.01,00:00,1,3,1,2,50",
+        "2024.01.01,00:00,7,9,6,8,100",
     ]
     path = write_csv("dup.csv", rows)
-    ds = DataStore.load_csv(path)
-    assert ds.bar_count == 2
-    assert ds._bars[0].open_ == 1.0
-    assert ds._bars[1].open_ == 6.0
+
+    with pytest.raises(ValueError, match="Duplicate timestamp"):
+        DataStore.load_csv(path)
+
+
+def test_load_csv_mixed_rows_duplicate_timestamp_fails(write_csv, valid_row):
+    rows = [
+        valid_row,
+        "2024.01.01,00:00,abc,3,1,2,5",  # malformed, skipped
+        valid_row,  # duplicate timestamp
+    ]
+    path = write_csv("mixed.csv", rows)
+
+    with pytest.raises(ValueError, match="Duplicate timestamp"):
+        DataStore.load_csv(path)
+
+
+def test_load_csv_non_adjacent_duplicate_timestamps_raises(write_csv):
+    rows = [
+        "2024.01.01,00:00,1,3,1,2,50",
+        "2024.01.02,00:00,1,3,1,2,5",
+        "2024.01.01,00:00,7,9,6,8,100",  # duplicate of row 1
+    ]
+    path = write_csv("dup_non_adjacent.csv", rows)
+
+    with pytest.raises(ValueError, match="Duplicate timestamp"):
+        DataStore.load_csv(path)
 
 
 # ---------------------------------------------------------------------------

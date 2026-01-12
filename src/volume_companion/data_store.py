@@ -27,8 +27,10 @@ class DataStore:
         Load OHLCV bars from a CSV file of fixed format.
 
         Malformed rows are skipped with a concise warning.
+        Duplicate timestamps are treated as a fatal error and abort loading.
         """
         bars: list[Bar] = []
+        seen_timestamps: set[dt.datetime] = set()
 
         path = Path(path)
         if not path.is_file():
@@ -56,20 +58,27 @@ class DataStore:
                         timestamp_format,
                     )
 
-                    bars.append(
-                        Bar(
-                            timestamp=timestamp,
-                            open_=float(row[2]),
-                            high=float(row[3]),
-                            low=float(row[4]),
-                            close=float(row[5]),
-                            volume=float(row[6]),
-                        )
+                    bar = Bar(
+                        timestamp=timestamp,
+                        open_=float(row[2]),
+                        high=float(row[3]),
+                        low=float(row[4]),
+                        close=float(row[5]),
+                        volume=float(row[6]),
                     )
                 except (ValueError, TypeError) as exc:
                     skipped += 1
                     print(f"Skipping CSV row {line_no}: {exc}")
                     continue
+
+                if timestamp in seen_timestamps:
+                    raise ValueError(
+                        f"Duplicate timestamp detected at CSV row {line_no}: "
+                        f"{timestamp}"
+                    )
+
+                seen_timestamps.add(timestamp)
+                bars.append(bar)
 
         if not bars:
             raise ValueError("CSV contains no valid OHLCV rows")
