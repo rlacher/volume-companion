@@ -19,7 +19,7 @@ class Bar(BaseModel):
     @classmethod
     def check_high(cls, v, info):
         low = info.data.get("low")
-        open_ = info.data.get("open")
+        open_ = info.data.get("open_")
         if low is not None and v < low:
             raise ValueError("high must be >= low")
         if open_ is not None and v < open_:
@@ -30,7 +30,7 @@ class Bar(BaseModel):
     @classmethod
     def check_low(cls, v, info):
         high = info.data.get("high")
-        open_ = info.data.get("open")
+        open_ = info.data.get("open_")
         if high is not None and v > high:
             raise ValueError("low must be <= high")
         if open_ is not None and v > open_:
