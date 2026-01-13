@@ -57,6 +57,14 @@ Within the prompt you can configure the session, navigate through data, and disp
 - `verbose`: Toggle verbose output
 - `config`: Show current session configuration (bars, offset, verbose mode)
 
+## Testing
+
+Run the test suite locally with (requires `poetry install --with dev`):
+
+```bash
+poetry run pytest --cov=src/ tests/
+```
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
