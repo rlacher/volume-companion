@@ -105,6 +105,30 @@ def test_each_row_column_count_uniform_bars(bars_identical):
         assert len(columns) == len(bars_identical)
 
 
+def test_format_verbose_single_bar_upward(bar_factory):
+    bar = bar_factory(volume=10, open_=1.1, close=1.2)
+
+    output = Formatter.format_verbose([bar])
+
+    assert "O:1.1" in output
+    assert "C:1.2" in output
+    assert "Vol:10" in output
+    assert "↑" in output
+
+
+def test_format_verbose_multiple_bars_mixed_direction(bars_mixed):
+    output = Formatter.format_verbose(bars_mixed)
+    lines = output.splitlines()
+
+    assert len(lines) == len(bars_mixed)
+
+    assert any("↑" in line for line in lines)
+    assert any("↓" in line for line in lines)
+
+    for bar in bars_mixed:
+        assert f"Vol:{int(bar.volume)}" in output
+
+
 # ---------------------------------------------------------------------------
 # Scaling and glyph behaviour
 # ---------------------------------------------------------------------------
