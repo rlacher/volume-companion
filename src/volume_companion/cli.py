@@ -174,6 +174,7 @@ class VolumeCLI(cmd.Cmd):
 
     def _render(self, bars) -> None:
         """Render current bars using formatter."""
-        print(self.formatter.format_ascii_volume(bars))
-        if self.state.verbose:
+        if not self.state.verbose:
+            print(self.formatter.format_ascii_volume(bars))
+        else:
             print(self.formatter.format_verbose(bars))
