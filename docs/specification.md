@@ -45,15 +45,14 @@
 ## 8. Navigation and Interaction
 8.1 After loading the CSV, the tool shall provide a prompt-based interactive interface.  
 8.2 At the prompt, the user shall be able to issue the following commands:  
-- *datetime YYYY-MM-DDTHH:MM* to select a datetime  
-- *bars <int>* to set the number of displayed bars  
-- *offset <int>* to set the time zone offset  
-- *step* to advance to the next bar  
-- *verbose* to toggle verbose output  
-- *config* to display current session configuration  
+    - *datetime* (optional YYYY-MM-DDTHH:MM) to render the volume bars for a selected datetime; if omitted, the current session datetime is used  
+    - *bars* (number) to set the number of displayed bars  
+    - *offset* (hours) to set the time zone offset  
+    - *step* (optional number) to advance one or more bars; defaults to one bar  
+    - *verbose* to toggle verbose output  
+    - *config* to display the active session configuration (datetime, bars, offset, verbose mode) in a concise, readable format  
+8.3 The tool shall maintain session state including current datetime, number of bars, time zone offset, and verbose mode.
 
-8.3 The tool shall maintain session state including current datetime, number of bars, time zone offset, and verbose mode.  
-8.4 The *config* command shall print the active session configuration in a concise, readable format.
 
 ## 9. Error Handling
 9.1 The tool shall handle invalid input gracefully with concise, clear error messages.  
