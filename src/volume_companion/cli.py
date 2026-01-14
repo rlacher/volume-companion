@@ -164,7 +164,7 @@ class VolumeCLI(cmd.Cmd):
         )
 
         if bars:
-            last_bar = bars[-1].timestamp
+            last_bar = bars[-1]
             self.state.set_from_server_datetime(last_bar.timestamp)
             print(f"selected_datetime={self.state.selected_datetime}")
         else:
