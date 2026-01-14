@@ -79,8 +79,8 @@ def formatter():
 
 
 @pytest.fixture
-def cli(state, formatter, data_store):
-    """CLI instance under test."""
+def mock_cli(state, formatter, data_store):
+    """CLI instance using mocked dependencies."""
     return VolumeCLI(state=state, formatter=formatter, data_store=data_store)
 
 
@@ -92,6 +92,16 @@ def make_bar():
         bar.timestamp = ts or datetime(2025, 1, 1, 10, 0)
         return bar
     return _make
+
+
+@pytest.fixture()
+def real_cli(data_store: Mock) -> VolumeCLI:
+    """CLI with real session state and formatter; data_store mocked."""
+    return VolumeCLI(
+        state=SessionState(),
+        formatter=Formatter(),
+        data_store=data_store,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -166,45 +176,189 @@ def test_cli_smoke_datetime_two_bars(two_bar_csv: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Integration tests for do_config
+# Integration tests for VolumeCLI commands
 # ---------------------------------------------------------------------------
 
 @pytest.mark.integration
-def test_do_config_outputs_state(capsys) -> None:
-    """
-    Lightweight integration test for the `config` command.
-
-    Verifies that the CLI exposes current session state via logging
-    without asserting on exact formatting.
-    """
-    mock_data_store = Mock()
-
-    cli = VolumeCLI(
-        state=SessionState(),
-        formatter=Formatter(),
-        data_store=mock_data_store
-    )
-
-    cli.do_config("")
-
+@pytest.mark.parametrize(
+    "arg, expected",
+    [
+        ("10", 10),
+        ("1", 1),
+    ],
+)
+def test_do_bars_sets_valid_value(
+    real_cli: VolumeCLI,
+    capsys,
+    arg: str,
+    expected: int,
+) -> None:
+    """bars <int> updates session state and reports success."""
+    real_cli.do_bars(arg)
     captured = capsys.readouterr()
 
-    assert "bars=" in captured.out
-    assert "offset=" in captured.out
+    assert real_cli.state.bars == expected
+    assert f"bars={expected}" in captured.out
+
+
+@pytest.mark.integration
+def test_do_bars_rejects_invalid_value(real_cli: VolumeCLI, capsys) -> None:
+    """bars rejects invalid input without mutating state."""
+    original = real_cli.state.bars
+
+    real_cli.do_bars("abc")
+    captured = capsys.readouterr()
+
+    assert real_cli.state.bars == original
+    assert "Invalid bars value" in captured.out
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("arg, expected", [("-2", -2), ("0", 0)])
+def test_do_offset_sets_valid_value(
+    real_cli: VolumeCLI,
+    capsys,
+    arg: str,
+    expected: int,
+) -> None:
+    """offset accepts valid integer values."""
+    real_cli.do_offset(arg)
+    captured = capsys.readouterr()
+
+    assert real_cli.state.offset == expected
+    assert f"offset={expected}" in captured.out
+
+
+@pytest.mark.integration
+def test_do_verbose_toggles_state(real_cli: VolumeCLI, capsys) -> None:
+    """verbose toggles the session state deterministically."""
+    initial = real_cli.state.verbose
+
+    real_cli.do_verbose("")
+    first = capsys.readouterr()
+
+    assert real_cli.state.verbose is not initial
+    assert f"verbose={real_cli.state.verbose}" in first.out
+
+    real_cli.do_verbose("")
+    second = capsys.readouterr()
+
+    assert real_cli.state.verbose is initial
+    assert f"verbose={real_cli.state.verbose}" in second.out
+
+
+@pytest.mark.integration
+def test_do_config_outputs_current_state(real_cli: VolumeCLI, capsys) -> None:
+    """config exposes current session state without side effects."""
+    real_cli.do_bars("15")
+    real_cli.do_offset("1")
+    real_cli.do_verbose("")
+
+    capsys.readouterr()  # discard setup output
+    real_cli.do_config("")
+    captured = capsys.readouterr()
+
+    assert "bars=15" in captured.out
+    assert "offset=1" in captured.out
     assert "verbose=" in captured.out
-    mock_data_store.assert_not_called()
+
+
+@pytest.mark.integration
+def test_do_datetime_without_arg_queries_and_renders(
+    real_cli: VolumeCLI
+) -> None:
+    """datetime without argument queries current selection and renders."""
+    real_cli._query_datetime = Mock(return_value=["bar"])
+    real_cli._render = Mock()
+
+    real_cli.do_datetime("")
+
+    real_cli._query_datetime.assert_called_once()
+    real_cli._render.assert_called_once_with(["bar"])
+
+
+@pytest.mark.integration
+def test_do_datetime_with_valid_arg_updates_state_and_renders(
+    real_cli: VolumeCLI
+) -> None:
+    """datetime <value> updates selection and renders data."""
+    real_cli._query_datetime = Mock(return_value=["bar"])
+    real_cli._render = Mock()
+
+    real_cli.do_datetime("2025-01-10T12:00")
+
+    expected_dt = datetime.fromisoformat("2025-01-10T12:00")
+    assert real_cli.state.selected_datetime == expected_dt
+    real_cli._query_datetime.assert_called_once()
+    real_cli._render.assert_called_once()
+
+
+@pytest.mark.integration
+def test_do_datetime_with_invalid_arg_fails_early(
+    real_cli: VolumeCLI,
+    capsys,
+) -> None:
+    """Invalid datetime input fails without querying or rendering."""
+    real_cli._query_datetime = Mock()
+    real_cli._render = Mock()
+
+    real_cli.do_datetime("invalid")
+    captured = capsys.readouterr()
+
+    assert "Invalid datetime format" in captured.out
+    real_cli._query_datetime.assert_not_called()
+    real_cli._render.assert_not_called()
+
+
+@pytest.mark.integration
+def test_do_step_defaults_to_one_and_renders(real_cli: VolumeCLI) -> None:
+    """step without argument advances one bar and renders."""
+    real_cli._step = Mock(return_value=["bar"])
+    real_cli._render = Mock()
+
+    real_cli.do_step("")
+
+    real_cli._step.assert_called_once_with(1)
+    real_cli._render.assert_called_once()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "arg, expected_error",
+    [
+        ("0", "Step must be positive"),
+        ("-1", "Step must be positive"),
+        ("abc", "Invalid step value"),
+    ],
+)
+def test_do_step_rejects_invalid_values(
+    real_cli: VolumeCLI,
+    capsys,
+    arg: str,
+    expected_error: str,
+) -> None:
+    """step rejects invalid or non-positive values without side effects."""
+    real_cli._step = Mock()
+    real_cli._render = Mock()
+
+    real_cli.do_step(arg)
+    captured = capsys.readouterr()
+
+    assert expected_error in captured.out
+    real_cli._step.assert_not_called()
+    real_cli._render.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
 # Unit tests for _step method
 # ---------------------------------------------------------------------------
 
-def test_step_no_selected_datetime(cli, state, data_store, capsys):
+def test_step_no_selected_datetime(mock_cli, state, data_store, capsys):
     """If no datetime is selected, _step must return empty and not
     call next_slice."""
     state.selected_datetime = None
 
-    result = cli._step(1)
+    result = mock_cli._step(1)
 
     assert result == ()
     assert "No valid datetime selected" in capsys.readouterr().out
@@ -212,14 +366,16 @@ def test_step_no_selected_datetime(cli, state, data_store, capsys):
     state.set_from_server_datetime.assert_not_called()
 
 
-def test_step_success_updates_state(cli, state, data_store, make_bar, capsys):
+def test_step_success_updates_state(
+        mock_cli, state, data_store, make_bar, capsys
+):
     """When next_slice returns bars, state must update to the last bar
     timestamp."""
     b1 = make_bar(datetime(2025, 1, 1, 10, 1))
     b2 = make_bar(datetime(2025, 1, 1, 10, 2))
     data_store.next_slice.return_value = (b1, b2)
 
-    result = cli._step(2)
+    result = mock_cli._step(2)
 
     assert result == (b1, b2)
     state.set_from_server_datetime.assert_called_once_with(
@@ -228,35 +384,35 @@ def test_step_success_updates_state(cli, state, data_store, make_bar, capsys):
     assert "selected_datetime" in capsys.readouterr().out
 
 
-def test_step_no_bars_state_unchanged(cli, state, data_store, capsys):
+def test_step_no_bars_state_unchanged(mock_cli, state, data_store, capsys):
     """If next_slice returns empty, state must not change."""
     data_store.next_slice.return_value = ()
 
-    result = cli._step(5)
+    result = mock_cli._step(5)
 
     assert result == ()
     state.set_from_server_datetime.assert_not_called()
     assert "Step exceeds available bars" in capsys.readouterr().out
 
 
-def test_step_single_bar_updates_state(cli, state, data_store, make_bar):
+def test_step_single_bar_updates_state(mock_cli, state, data_store, make_bar):
     """Single-bar slices must still update state correctly."""
     ts = datetime(2025, 1, 1, 10, 5)
     bar = make_bar(ts)
     data_store.next_slice.return_value = (bar,)
 
-    result = cli._step(1)
+    result = mock_cli._step(1)
 
     assert result == (bar,)
     state.set_from_server_datetime.assert_called_once_with(ts)
 
 
-def test_step_passes_correct_arguments(cli, state, data_store, make_bar):
+def test_step_passes_correct_arguments(mock_cli, state, data_store, make_bar):
     """_step must pass correct parameters to next_slice."""
     bar = make_bar()
     data_store.next_slice.return_value = (bar,)
 
-    cli._step(3)
+    mock_cli._step(3)
 
     data_store.next_slice.assert_called_once_with(
         state.as_server_datetime,
@@ -265,7 +421,7 @@ def test_step_passes_correct_arguments(cli, state, data_store, make_bar):
     )
 
 
-def test_step_two_consecutive_updates(cli, state, data_store, make_bar):
+def test_step_two_consecutive_updates(mock_cli, state, data_store, make_bar):
     """Sequential steps must update state predictably."""
     ts1 = datetime(2025, 1, 1, 10, 1)
     ts2 = datetime(2025, 1, 1, 10, 2)
@@ -275,8 +431,8 @@ def test_step_two_consecutive_updates(cli, state, data_store, make_bar):
         (make_bar(ts2),),
     ]
 
-    cli._step(1)
-    cli._step(1)
+    mock_cli._step(1)
+    mock_cli._step(1)
 
     assert state.set_from_server_datetime.call_args_list == [
         call(ts1),
@@ -288,11 +444,11 @@ def test_step_two_consecutive_updates(cli, state, data_store, make_bar):
 # Unit tests for _query_datetime method
 # ---------------------------------------------------------------------------
 
-def test_query_datetime_no_selection(cli, state, data_store, capsys):
+def test_query_datetime_no_selection(mock_cli, state, data_store, capsys):
     """Return empty and print error when no datetime is selected."""
     state.selected_datetime = None
 
-    result = cli._query_datetime()
+    result = mock_cli._query_datetime()
 
     assert result == ()
     assert "No valid datetime selected" in capsys.readouterr().out
@@ -300,11 +456,11 @@ def test_query_datetime_no_selection(cli, state, data_store, capsys):
     state.set_from_server_datetime.assert_not_called()
 
 
-def test_query_datetime_empty_slice(cli, state, data_store, capsys):
+def test_query_datetime_empty_slice(mock_cli, state, data_store, capsys):
     """Return empty and print message when slice is empty."""
     data_store.get_slice.return_value = ()
 
-    result = cli._query_datetime()
+    result = mock_cli._query_datetime()
 
     assert result == ()
     output = capsys.readouterr().out
@@ -313,7 +469,7 @@ def test_query_datetime_empty_slice(cli, state, data_store, capsys):
 
 
 def test_query_datetime_exact_match(
-        cli, state, data_store, make_bar, capsys
+        mock_cli, state, data_store, make_bar, capsys
 ):
     """Update state and print selected datetime when last bar matches
     server_dt."""
@@ -321,7 +477,7 @@ def test_query_datetime_exact_match(
     bars = (make_bar(ts), make_bar(ts), make_bar(ts))
     data_store.get_slice.return_value = bars
 
-    result = cli._query_datetime()
+    result = mock_cli._query_datetime()
 
     assert result == bars
     state.set_from_server_datetime.assert_called_once_with(ts)
@@ -333,7 +489,7 @@ def test_query_datetime_exact_match(
 
 
 def test_query_datetime_no_exact_match(
-        cli, state, data_store, make_bar, capsys
+        mock_cli, state, data_store, make_bar, capsys
 ):
     """Warn when no bar exactly matches the selected datetime."""
     bars = (
@@ -343,7 +499,7 @@ def test_query_datetime_no_exact_match(
     )
     data_store.get_slice.return_value = bars
 
-    cli._query_datetime()
+    mock_cli._query_datetime()
 
     output = capsys.readouterr().out
     assert "No bar exactly at" in output
@@ -351,7 +507,7 @@ def test_query_datetime_no_exact_match(
 
 
 def test_query_datetime_fewer_bars_than_requested(
-        cli, state, data_store, make_bar, capsys
+        mock_cli, state, data_store, make_bar, capsys
 ):
     """Warn when fewer bars than requested are available."""
     state.bars = 5
@@ -361,7 +517,7 @@ def test_query_datetime_fewer_bars_than_requested(
     )
     data_store.get_slice.return_value = bars
 
-    result = cli._query_datetime()
+    result = mock_cli._query_datetime()
 
     assert result == bars
     output = capsys.readouterr().out
