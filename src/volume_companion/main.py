@@ -4,21 +4,12 @@
 """Executable entry point for the Volume Companion CLI."""
 
 import argparse
-import logging
-import sys
 from pathlib import Path
 
 from volume_companion.cli import VolumeCLI
+from volume_companion.formatter import Formatter
 from volume_companion.session_state import SessionState
-
-
-def _configure_logging() -> None:
-    """Configure lean console logging."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)]
-    )
+from volume_companion.data_store import DataStore
 
 
 def parse_args() -> Path:
@@ -33,20 +24,25 @@ def parse_args() -> Path:
     args = parser.parse_args()
 
     path = Path(args.csv_path)
-    if not path.is_file():
-        raise FileNotFoundError(f"CSV file not found: {path}")
 
     return path
 
 
 def main() -> None:
     """CLI entrypoint."""
-    _configure_logging()
-
     csv_path = parse_args()
-    session_state = SessionState()
 
-    VolumeCLI(csv_path, session_state).cmdloop()
+    session_state = SessionState()
+    formatter = Formatter()
+    data_store = DataStore.load_csv(csv_path)
+
+    print(f"Loaded CSV file {csv_path.name} with {data_store.bar_count} bars")
+
+    VolumeCLI(
+        session_state,
+        formatter,
+        data_store
+    ).cmdloop()
 
 
 if __name__ == "__main__":

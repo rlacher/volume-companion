@@ -10,3 +10,5 @@ repos:
       - id: mypy
         pass_filenames: false
         args: ["--config-file", "mypy.ini"]
+        additional_dependencies: [ "pydantic>=2.12,<3.0" ]
+  
