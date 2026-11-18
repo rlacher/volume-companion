@@ -33,8 +33,10 @@ class DataStore:
         seen_timestamps: set[dt.datetime] = set()
 
         path = Path(path)
-        if not path.is_file():
+        if not path.exists():
             raise FileNotFoundError(f"CSV file not found: {path}")
+        if not path.is_file():
+            raise ValueError(f"CSV path is not a regular file: {path}")
 
         if path.suffix.lower() != ".csv":
             print(f"Loading file without CSV extension: {path.name}")

@@ -4,6 +4,7 @@
 """Executable entry point for the Volume Companion CLI."""
 
 import argparse
+import sys
 from pathlib import Path
 
 from volume_companion.cli import VolumeCLI
@@ -34,7 +35,11 @@ def main() -> None:
 
     session_state = SessionState()
     formatter = Formatter()
-    data_store = DataStore.load_csv(csv_path)
+    try:
+        data_store = DataStore.load_csv(csv_path)
+    except (OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        raise SystemExit(1)
 
     print(f"Loaded CSV file {csv_path.name} with {data_store.bar_count} bars")
 

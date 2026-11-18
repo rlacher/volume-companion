@@ -71,7 +71,7 @@ def test_load_csv_file_not_found(tmp_path):
 def test_load_csv_path_is_directory(tmp_path):
     directory = tmp_path / "dir"
     directory.mkdir()
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(ValueError, match="not a regular file"):
         DataStore.load_csv(directory)
 
 
