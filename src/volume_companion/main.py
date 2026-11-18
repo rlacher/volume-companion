@@ -37,7 +37,7 @@ def main() -> None:
     formatter = Formatter()
     try:
         data_store = DataStore.load_csv(csv_path)
-    except FileNotFoundError as exc:
+    except (OSError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         raise SystemExit(1)
 
