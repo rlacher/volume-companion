@@ -13,7 +13,9 @@ Command-line tool displaying historical trading volume as ASCII bars from local 
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Example](#example)
 - [Commands](#commands)
+- [Testing](#testing)
 - [License](#license)
 - [Author](#author)
 
@@ -32,10 +34,16 @@ Command-line tool displaying historical trading volume as ASCII bars from local 
 Clone the repository, then install dependencies with:
 
 ```bash
-poetry install
+poetry install --with dev
 ```
 
 ## Usage
+
+The CSV holds one bar per row, without a header, in the fixed column order `YYYY.MM.DD,HH:MM,open,high,low,close,volume`:
+
+```csv
+2025.12.19,13:00,1.1390,1.1400,1.1385,1.1395,12345
+```
 
 Run the project using:
 
@@ -45,6 +53,12 @@ poetry run volume-companion path/to/data.csv
 
 After startup, the tool enters an interactive prompt.
 Type `help` to list available commands.
+
+## Example
+
+![Volume Companion session showing green and red volume bars](docs/volume-bars.png)
+
+Each column is one bar, oldest on the left. Bar heights are scaled to the largest volume in the current window; green bars closed at or above their open, red bars below.
 
 ## Commands
 
@@ -59,7 +73,7 @@ Within the prompt you can configure the session, navigate through data, and disp
 
 ## Testing
 
-Run the test suite locally with (requires `poetry install --with dev`):
+Run the test suite locally with:
 
 ```bash
 poetry run pytest --cov=src/ tests/
