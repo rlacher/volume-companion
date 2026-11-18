@@ -34,7 +34,7 @@ Command-line tool displaying historical trading volume as ASCII bars from local 
 Clone the repository, then install dependencies with:
 
 ```bash
-poetry install --with dev
+poetry install
 ```
 
 ## Usage
@@ -73,10 +73,11 @@ Within the prompt you can configure the session, navigate through data, and disp
 
 ## Testing
 
-Run the test suite locally with:
+Install the development dependencies and run the test suite locally with:
 
 ```bash
-poetry run pytest --cov=src/ tests/
+poetry install --with dev
+poetry run pytest --cov=src/ --cov-branch tests/
 ```
 
 ## License
