@@ -223,8 +223,9 @@ def test_cli_smoke_datetime_two_bars(two_bar_csv: Path) -> None:
 @pytest.mark.parametrize(
     "arg, expected",
     [
-        ("10", 10),
         ("1", 1),
+        ("10", 10),
+        ("100", 100),
     ],
 )
 def test_do_bars_sets_valid_value(
@@ -242,11 +243,16 @@ def test_do_bars_sets_valid_value(
 
 
 @pytest.mark.integration
-def test_do_bars_rejects_invalid_value(real_cli: VolumeCLI, capsys) -> None:
-    """bars rejects invalid input without mutating state."""
+@pytest.mark.parametrize("arg", ["abc", "0", "101"])
+def test_do_bars_rejects_invalid_value(
+    real_cli: VolumeCLI,
+    capsys,
+    arg: str,
+) -> None:
+    """bars rejects malformed and out-of-range input without mutation."""
     original = real_cli.state.bars
 
-    real_cli.do_bars("abc")
+    real_cli.do_bars(arg)
     captured = capsys.readouterr()
 
     assert real_cli.state.bars == original
@@ -254,19 +260,44 @@ def test_do_bars_rejects_invalid_value(real_cli: VolumeCLI, capsys) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("arg, expected", [("-2", -2), ("0", 0)])
+@pytest.mark.parametrize(
+    "arg, expected",
+    [
+        ("-12", -12),
+        ("-2", -2),
+        ("0", 0),
+        ("14", 14),
+    ],
+)
 def test_do_offset_sets_valid_value(
     real_cli: VolumeCLI,
     capsys,
     arg: str,
     expected: int,
 ) -> None:
-    """offset accepts valid integer values."""
+    """offset accepts valid integer values including both bounds."""
     real_cli.do_offset(arg)
     captured = capsys.readouterr()
 
     assert real_cli.state.offset == expected
     assert f"offset={expected}" in captured.out
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("arg", ["abc", "-13", "15"])
+def test_do_offset_rejects_invalid_value(
+    real_cli: VolumeCLI,
+    capsys,
+    arg: str,
+) -> None:
+    """offset rejects malformed and out-of-range input without mutation."""
+    original = real_cli.state.offset
+
+    real_cli.do_offset(arg)
+    captured = capsys.readouterr()
+
+    assert real_cli.state.offset == original
+    assert "Invalid offset value" in captured.out
 
 
 @pytest.mark.integration
@@ -351,6 +382,19 @@ def test_do_datetime_with_invalid_arg_fails_early(
 
 
 @pytest.mark.integration
+def test_do_datetime_without_bars_does_not_render(
+    real_cli: VolumeCLI,
+) -> None:
+    """An empty query result must not trigger rendering."""
+    real_cli._query_datetime = Mock(return_value=())
+    real_cli._render = Mock()
+
+    real_cli.do_datetime("")
+
+    real_cli._render.assert_not_called()
+
+
+@pytest.mark.integration
 def test_do_step_defaults_to_one_and_renders(real_cli: VolumeCLI) -> None:
     """step without argument advances one bar and renders."""
     real_cli._step = Mock(return_value=["bar"])
@@ -387,6 +431,72 @@ def test_do_step_rejects_invalid_values(
     assert expected_error in captured.out
     real_cli._step.assert_not_called()
     real_cli._render.assert_not_called()
+
+
+@pytest.mark.integration
+def test_do_step_without_bars_does_not_render(real_cli: VolumeCLI) -> None:
+    """An exhausted step must not trigger rendering."""
+    real_cli._step = Mock(return_value=())
+    real_cli._render = Mock()
+
+    real_cli.do_step("")
+
+    real_cli._render.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for the command loop and rendering
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+def test_do_eof_quits(real_cli: VolumeCLI, capsys) -> None:
+    """EOF behaves like quit."""
+    assert real_cli.do_EOF("") is True
+    assert "Bye." in capsys.readouterr().out
+
+
+@pytest.mark.integration
+def test_default_reports_unknown_command(
+    real_cli: VolumeCLI,
+    capsys,
+) -> None:
+    """Unknown commands are reported without exiting."""
+    real_cli.default("bogus")
+
+    assert "Unknown command: bogus" in capsys.readouterr().out
+
+
+@pytest.mark.integration
+def test_emptyline_is_ignored(real_cli: VolumeCLI) -> None:
+    """An empty line must not repeat the previous command."""
+    assert real_cli.emptyline() is False
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "verbose, method, output",
+    [
+        (False, "format_ascii_volume", "ascii"),
+        (True, "format_verbose", "verbose"),
+    ],
+)
+def test_render_uses_selected_format(
+    real_cli: VolumeCLI,
+    capsys,
+    verbose: bool,
+    method: str,
+    output: str,
+) -> None:
+    """Rendering selects the formatter matching the verbose flag."""
+    real_cli.state.verbose = verbose
+    real_cli.formatter = Mock()
+    getattr(real_cli.formatter, method).return_value = output
+    bars = [Mock()]
+
+    real_cli._render(bars)
+
+    getattr(real_cli.formatter, method).assert_called_once_with(bars)
+    assert output in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------

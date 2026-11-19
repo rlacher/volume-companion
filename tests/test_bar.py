@@ -57,37 +57,43 @@ def test_bar_construction_equal_values_allowed(make_bar):
     assert bar.low == 10.0
 
 
+def test_bar_construction_zero_values_allowed(make_bar):
+    """Bar accepts zero as the lower bound for prices and volume."""
+    bar = make_bar(open_=0.0, high=0.0, low=0.0, close=0.0, volume=0.0)
+    assert bar.high == 0.0
+    assert bar.volume == 0.0
+
+
 # ---------------------------------------------------------------------------
 # Invalid data tests
 # ---------------------------------------------------------------------------
 
+def test_high_below_open_raises(make_bar):
+    """high < open is rejected by the high validator."""
+    with pytest.raises(ValidationError, match="high must be >= open"):
+        make_bar(open_=10.0, high=9.0, low=5.0)
+
+
+def test_low_above_high_raises(make_bar):
+    """low > high is rejected by the low validator."""
+    with pytest.raises(ValidationError, match="low must be <= high"):
+        make_bar(open_=10.0, high=12.0, low=13.0)
+
+
+def test_low_above_open_raises(make_bar):
+    """low > open is rejected even when low <= high."""
+    with pytest.raises(ValidationError, match="low must be <= open"):
+        make_bar(open_=10.0, high=12.0, low=11.0)
+
+
 @pytest.mark.parametrize(
-    "kwargs",
-    [
-        {
-            "high": 5.0,
-            "low": 6.0,
-            "open_": 5.5,
-        },  # high < low, high < open, low > open
-        {
-            "low": 15.0,
-            "high": 12.0,
-            "open_": 14.0,
-        },  # low > high, low > open
-        {
-            "high": 9.0,
-            "low": 5.0,
-            "open_": 10.0,
-        },  # high < open
-        {
-            "low": 8.0,
-            "high": 12.0,
-            "open_": 9.0,
-            "close": -1.0,
-        },  # negative close
-    ],
+    "field",
+    ["open_", "high", "low", "close", "volume"],
 )
-def test_bar_invalid_data_raises_validation(make_bar, kwargs):
-    """Semi-permissive test: any invalid OHLCV combination raises."""
-    with pytest.raises(ValidationError):
-        make_bar(**kwargs)
+def test_negative_values_raise(make_bar, field):
+    """Negative prices and volume are rejected at the field boundary."""
+    with pytest.raises(
+        ValidationError,
+        match="greater than or equal to 0",
+    ):
+        make_bar(**{field: -0.01})

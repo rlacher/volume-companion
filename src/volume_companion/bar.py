@@ -18,10 +18,7 @@ class Bar(BaseModel):
     @field_validator("high")
     @classmethod
     def check_high(cls, v, info):
-        low = info.data.get("low")
         open_ = info.data.get("open_")
-        if low is not None and v < low:
-            raise ValueError("high must be >= low")
         if open_ is not None and v < open_:
             raise ValueError("high must be >= open")
         return v
