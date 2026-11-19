@@ -13,10 +13,11 @@
 3.3 User-entered datetimes shall use the fixed ISO-8601-like format: *YYYY-MM-DDTHH:MM*.  
 3.4 If the user inputs an invalid datetime, the tool shall fail gracefully with a concise error message.  
 3.5 The tool shall select the latest bars whose closing time is at or before the entered timestamp. A bar opening exactly at the entered timestamp has not closed and shall be excluded.  
-3.6 The tool shall infer one timeframe per CSV file as the smallest positive difference between consecutive timestamps. If no timeframe can be inferred, no bar shall be considered complete.
+3.6 The tool shall infer one timeframe per CSV file as the most common positive difference between consecutive timestamps, resolving ties to the larger difference. Non-multiple gaps shall be reported. If no timeframe can be inferred, no bar shall be considered complete.  
+3.7 For MetaTrader forex exports, the volume field shall be interpreted as tick volume, an activity proxy, not traded size.  
 
 ## 4. Time Zone Handling
-4.1 The tool shall allow setting a numerical time zone offset via the *offset <int>* command.  
+4.1 The tool shall allow setting a whole-hour numerical time zone offset via the *offset <int>* command. The offset is server time minus local time.  
 4.2 The offset shall be applied only to user-entered datetimes.  
 4.3 After applying the offset, the tool shall match the resulting datetime to the CSV (per rule 3.5).
 
@@ -58,4 +59,12 @@
 ## 9. Error Handling
 9.1 The tool shall handle invalid input gracefully with concise, clear error messages.  
 9.2 The tool shall not exit unexpectedly due to malformed commands or missing timestamp matches.  
-9.3 If no completed bar exists at or before the entered timestamp, the tool shall report this and request a valid input.
+9.3 If no completed bar exists at or before the entered timestamp, the tool shall report this and request a valid input.  
+
+## 10. Scope and Limitations
+10.1 Fixed-duration intraday and daily bars only; weekly, monthly, and yearly calendar bars are unsupported.  
+10.2 Whole-hour offsets only; half-hour or quarter-hour zones and DST-aware conversion are unsupported, as is timezone-aware input.  
+10.3 No futures or negative-price instruments.  
+10.4 Normalized seven-column comma-separated MT4-style CSV only; native MT5 nine-column, second-resolution, or tab-separated exports are unsupported.  
+10.5 The full file is held in memory; no caching, lazy loading, or compact storage. Memory use scales with file size.  
+10.6 Inputs are assumed trusted; control-character sanitization is not implemented.  
