@@ -8,20 +8,22 @@
 2.1 The tool shall load the CSV file once at startup, store it fully in memory, and respond to user queries within 0.5 seconds.
 
 ## 3. Data Input and Parsing
-3.1 The tool shall accept a CSV file containing OHLCV data using the fixed format: *YYYY.MM.DD,HH:MM,open,high,low,close,volume*.  
+3.1 The tool shall accept a CSV file containing OHLCV data using the fixed format: *YYYY.MM.DD,HH:MM,open,high,low,close,volume*. Each timestamp denotes the opening time of its bar; a bar closes once the inferred timeframe has elapsed.  
 3.2 The tool shall parse timestamps exclusively in this CSV format.  
 3.3 User-entered datetimes shall use the fixed ISO-8601-like format: *YYYY-MM-DDTHH:MM*.  
 3.4 If the user inputs an invalid datetime, the tool shall fail gracefully with a concise error message.  
-3.5 If the user inputs a datetime not present in the CSV, the tool shall select the latest bar strictly earlier than the entered timestamp.
+3.5 The tool shall select the latest bars whose closing time is at or before the entered timestamp. A bar opening exactly at the entered timestamp has not closed and shall be excluded.  
+3.6 The tool shall infer one timeframe per CSV file as the most common positive difference between consecutive timestamps, resolving ties to the larger difference. Non-multiple gaps shall be reported. If no timeframe can be inferred, no bar shall be considered complete.  
+3.7 For MetaTrader forex exports, the volume field shall be interpreted as tick volume, an activity proxy, not traded size.  
 
 ## 4. Time Zone Handling
-4.1 The tool shall allow setting a numerical time zone offset via the *offset <int>* command.  
+4.1 The tool shall allow setting a whole-hour numerical time zone offset via the *offset <int>* command. The offset is server time minus local time.  
 4.2 The offset shall be applied only to user-entered datetimes.  
 4.3 After applying the offset, the tool shall match the resulting datetime to the CSV (per rule 3.5).
 
 ## 5. Backtesting Constraints
-5.1 When a datetime is provided (after timezone adjustment), the tool shall display volume data only up to and including the selected bar.  
-5.2 The tool shall never display data newer than the selected bar.
+5.1 When a datetime is provided (after timezone adjustment), the tool shall display volume data only for bars whose closing time is at or before the selected datetime.  
+5.2 The tool shall never display a bar that is still open at the selected datetime.
 
 ## 6. Volume Display (ASCII Art Representation)
 6.1 The tool shall display the most recent N bars’ volumes as ASCII-art bars, one per price bar, left-to-right, with a space delimiter.  
@@ -45,16 +47,24 @@
 ## 8. Navigation and Interaction
 8.1 After loading the CSV, the tool shall provide a prompt-based interactive interface.  
 8.2 At the prompt, the user shall be able to issue the following commands:  
-    - *datetime* (optional YYYY-MM-DDTHH:MM) to render the volume bars for a selected datetime; if omitted, the current session datetime is used  
+    - *datetime* (optional YYYY-MM-DDTHH:MM) to render the volume bars completed at or before a selected datetime; if omitted, the current session datetime is used  
     - *bars* (number) to set the number of displayed bars  
     - *offset* (hours) to set the time zone offset  
     - *step* (optional number) to advance one or more bars; defaults to one bar  
     - *verbose* to toggle verbose output  
     - *config* to display the active session configuration (datetime, bars, offset, verbose mode) in a concise, readable format  
-8.3 The tool shall maintain session state including current datetime, number of bars, time zone offset, and verbose mode.
+8.3 The tool shall maintain session state including current datetime, number of bars, time zone offset, and verbose mode. The current datetime shall represent the closing time of the most recently displayed bar.
 
 
 ## 9. Error Handling
 9.1 The tool shall handle invalid input gracefully with concise, clear error messages.  
 9.2 The tool shall not exit unexpectedly due to malformed commands or missing timestamp matches.  
-9.3 If a timestamp falls before the start of the CSV data, the tool shall request a valid input.
+9.3 If no completed bar exists at or before the entered timestamp, the tool shall report this and request a valid input.  
+
+## 10. Scope and Limitations
+10.1 Fixed-duration intraday and daily bars only; weekly, monthly, and yearly calendar bars are unsupported.  
+10.2 Whole-hour offsets only; half-hour or quarter-hour zones and DST-aware conversion are unsupported, as is timezone-aware input.  
+10.3 No futures or negative-price instruments.  
+10.4 Normalized seven-column comma-separated MT4-style CSV only; native MT5 nine-column, second-resolution, or tab-separated exports are unsupported.  
+10.5 The full file is held in memory; no caching, lazy loading, or compact storage. Memory use scales with file size.  
+10.6 Inputs are assumed trusted; control-character sanitization is not implemented.  

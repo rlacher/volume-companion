@@ -4,11 +4,13 @@
 
 import io
 from pathlib import Path
+import runpy
 import subprocess
 import sys
 
 import pytest
 
+import volume_companion.main as main_module
 from volume_companion.main import main
 
 SUBPROCESS_TIMEOUT_SECONDS = 5
@@ -55,6 +57,20 @@ def test_main_starts_cli_and_quits(monkeypatch, csv_file, capsys):
     assert "with 2 bars" in captured.out
     assert "Bye." in captured.out
     assert captured.err == ""
+
+
+@pytest.mark.integration
+def test_main_module_entrypoint(monkeypatch, csv_file, capsys):
+    """Running the module as a script executes main()."""
+    monkeypatch.setattr(
+        sys, "argv", ["volume-companion", str(csv_file)]
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO("quit\n"))
+
+    runpy.run_path(str(main_module.__file__), run_name="__main__")
+
+    captured = capsys.readouterr()
+    assert "Bye." in captured.out
 
 
 @pytest.mark.integration

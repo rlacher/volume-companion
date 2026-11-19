@@ -127,20 +127,15 @@ class VolumeCLI(cmd.Cmd):
 
         if not bars:
             print(
-                "Selected datetime is before the first available bar"
+                "No completed bars at or before the selected datetime"
             )
             return bars
 
         last_bar = bars[-1]
-        self.state.set_from_server_datetime(last_bar.timestamp)
+        self.state.set_from_server_datetime(
+            self.data_store.close_time(last_bar)
+        )
         print(f"selected_datetime={self.state.selected_datetime}")
-
-        if last_bar.timestamp != server_dt:
-            print(
-                f"No bar exactly at {user_dt}. "
-                f"Showing last {len(bars)} bars ending at "
-                f"{self.state.selected_datetime}."
-            )
 
         if len(bars) < self.state.bars:
             print(
@@ -165,7 +160,9 @@ class VolumeCLI(cmd.Cmd):
 
         if bars:
             last_bar = bars[-1]
-            self.state.set_from_server_datetime(last_bar.timestamp)
+            self.state.set_from_server_datetime(
+                self.data_store.close_time(last_bar)
+            )
             print(f"selected_datetime={self.state.selected_datetime}")
         else:
             print("Step exceeds available bars")

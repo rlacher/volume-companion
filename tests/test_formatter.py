@@ -3,6 +3,7 @@
 """Unit tests for Formatter.format_ascii_volume."""
 
 import re
+import sys
 from datetime import datetime
 
 import pytest
@@ -69,6 +70,28 @@ def bars_identical(bar_factory) -> tuple[DummyBar]:
         bar_factory(volume=30, open_=1.2, close=1.0),
         bar_factory(volume=30, open_=1.0, close=1.0),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Terminal capability detection
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "is_tty, expected",
+    [
+        (True, True),
+        (False, False),
+    ],
+)
+def test_supports_colour_follows_stdout(monkeypatch, is_tty, expected):
+    """Colour support mirrors whether stdout is a TTY."""
+    class FakeStdout:
+        def isatty(self) -> bool:
+            return is_tty
+
+    monkeypatch.setattr(sys, "stdout", FakeStdout())
+
+    assert Formatter.supports_colour() is expected
 
 
 # ---------------------------------------------------------------------------

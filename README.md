@@ -6,12 +6,13 @@
 [![pytest](https://img.shields.io/github/actions/workflow/status/rlacher/volume-companion/pytest.yaml?label=pytest&style=flat)](https://github.com/rlacher/volume-companion/actions/workflows/pytest.yaml)
 [![license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://spdx.org/licenses/MIT.html)
 
-Command-line tool displaying historical trading volume as ASCII bars from local CSV data.
+Command-line tool displaying historical volume as ASCII bars from local CSV data.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
+- [CSV Input](#csv-input)
 - [Usage](#usage)
 - [Example](#example)
 - [Commands](#commands)
@@ -37,13 +38,21 @@ Clone the repository, then install dependencies with:
 poetry install
 ```
 
-## Usage
+## CSV Input
 
 The CSV holds one bar per row, without a header, in the fixed column order `YYYY.MM.DD,HH:MM,open,high,low,close,volume`:
 
 ```csv
 2025.12.19,13:00,1.1390,1.1400,1.1385,1.1395,12345
 ```
+
+Timestamps mark each candle's opening time, not its closing time. A candle is only displayed once it has fully closed. The timeframe is inferred from the most common interval between consecutive rows; ties go to the larger interval, and non-multiple gaps are reported. The bar opening at the selected datetime is never included.
+
+For MetaTrader forex exports, volume is tick volume, not traded size.
+
+**Scope.** Supports fixed-duration bars in the standard seven-column CSV only; calendar bars, other formats, and large files are out of scope.
+
+## Usage
 
 Run the project using:
 
@@ -58,15 +67,15 @@ Type `help` to list available commands.
 
 ![Volume Companion session showing green and red volume bars](docs/volume-bars.png)
 
-Each column is one bar, oldest on the left. Bar heights are scaled to the largest volume in the current window; green bars closed at or above their open, red bars below.
+Each column is one bar, oldest on the left. Bar heights are scaled to the largest volume in the current window; green bars have a closing price at or above their opening price, red bars below.
 
 ## Commands
 
 Within the prompt you can configure the session, navigate through data, and display volume at specific points in time.
 
-- `datetime [<YYYY-MM-DDTHH:MM>]`: Display volume bar window for previously selected datetime or jump to provided datetime (ISO format)
+- `datetime [<YYYY-MM-DDTHH:MM>]`: Display bars completed at or before the selected datetime or jump to the provided datetime (ISO format)
 - `bars <number>`: Set the number of displayed bars
-- `offset <hours>`: Set the time zone offset
+- `offset <hours>`: Set the whole-hour time zone offset (server minus local)
 - `step [<number>]`: Advance one or multiple bars (number optional, defaults to 1)
 - `verbose`: Toggle verbose output
 - `config`: Show current session configuration (bars, offset, verbose mode)
