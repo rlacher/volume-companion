@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 René Lacher
-"""Unit tests for Bar validation: check_high, check_low."""
+"""Unit tests for Bar validation: check_high, check_low, check_close."""
 
 import pytest
 from datetime import datetime
@@ -86,6 +86,18 @@ def test_low_above_open_raises(make_bar):
         make_bar(open_=10.0, high=12.0, low=11.0)
 
 
+def test_close_above_high_raises(make_bar):
+    """close > high is rejected by the close validator."""
+    with pytest.raises(ValidationError, match="close must be <= high"):
+        make_bar(close=13.0)
+
+
+def test_close_below_low_raises(make_bar):
+    """close < low is rejected by the close validator."""
+    with pytest.raises(ValidationError, match="close must be >= low"):
+        make_bar(close=7.0)
+
+
 @pytest.mark.parametrize(
     "field",
     ["open_", "high", "low", "close", "volume"],
@@ -97,3 +109,13 @@ def test_negative_values_raise(make_bar, field):
         match="greater than or equal to 0",
     ):
         make_bar(**{field: -0.01})
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["open_", "high", "low", "close", "volume"],
+)
+def test_non_finite_values_raise(make_bar, field):
+    """Infinite prices and volume are rejected."""
+    with pytest.raises(ValidationError, match="finite"):
+        make_bar(**{field: float("inf")})
