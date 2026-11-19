@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 import bisect
-import datetime as dt
-from pathlib import Path
 import csv
+import datetime as dt
+from itertools import pairwise
+from pathlib import Path
 
 from volume_companion.bar import Bar
 
@@ -20,6 +21,7 @@ class DataStore:
 
         self._bars: tuple[Bar, ...] = tuple(sorted_bars)
         self._timestamps: list[dt.datetime] = [b.timestamp for b in self._bars]
+        self._timeframe: dt.timedelta | None = self._infer_timeframe()
 
     @classmethod
     def load_csv(cls, path: str | Path) -> DataStore:
@@ -90,12 +92,36 @@ class DataStore:
 
         return cls(bars)
 
+    def _infer_timeframe(self) -> dt.timedelta | None:
+        """Infer one timeframe from the smallest positive timestamp gap."""
+        gaps = (
+            later - earlier
+            for earlier, later in pairwise(self._timestamps)
+            if later > earlier
+        )
+        return min(gaps, default=None)
+
+    def close_time(self, bar: Bar) -> dt.datetime:
+        """Return the closing time of a bar based on the timeframe."""
+        if self._timeframe is None:
+            raise ValueError(
+                "Cannot determine bar close time without a timeframe"
+            )
+        return bar.timestamp + self._timeframe
+
     def get_slice(self, end_dt: dt.datetime, n: int) -> tuple[Bar, ...]:
         """
-        Return up to n bars ending at or before end_dt.
-        Returns empty tuple if end_dt is before first bar.
+        Return up to n bars closed at or before end_dt.
+        Returns empty tuple if no bar closed by end_dt or if no
+        timeframe could be inferred.
         """
-        idx = bisect.bisect_right(self._timestamps, end_dt) - 1
+        if self._timeframe is None:
+            return ()
+
+        idx = bisect.bisect_right(
+            self._timestamps,
+            end_dt - self._timeframe,
+        ) - 1
         if idx < 0:
             return ()
         start = max(0, idx - n + 1)
@@ -108,20 +134,26 @@ class DataStore:
         n: int,
     ) -> tuple[Bar, ...]:
         """
-        Return the next window of n bars after current_dt,
+        Return the next window of n bars closed after current_dt,
         advanced forward by `steps` bars.
         Returns empty tuple if no further data is available.
         """
         if steps <= 0:
             raise ValueError(f"Steps must be positive, got {steps}")
+        if self._timeframe is None:
+            return ()
 
-        start_idx = bisect.bisect_right(self._timestamps, current_dt)
-        target_idx = start_idx + steps - 1
+        closed_idx = bisect.bisect_right(
+            self._timestamps,
+            current_dt - self._timeframe,
+        ) - 1
+        target_idx = closed_idx + steps
 
         if target_idx >= len(self._bars):
             return ()
 
-        return self.get_slice(self._timestamps[target_idx], n)
+        target_close = self._timestamps[target_idx] + self._timeframe
+        return self.get_slice(target_close, n)
 
     @property
     def bar_count(self) -> int:

@@ -10,6 +10,7 @@ from unittest.mock import Mock, call
 
 from volume_companion.bar import Bar
 from volume_companion.cli import VolumeCLI
+from volume_companion.data_store import DataStore
 from volume_companion.session_state import SessionState
 from volume_companion.formatter import Formatter
 
@@ -135,6 +136,45 @@ def test_cli_smoke(minimal_valid_csv: Path) -> None:
     assert not result.stderr
     assert "bars=" in result.stdout
     assert result.stdout.count("verbose=") == 2
+
+
+@pytest.mark.system
+@pytest.mark.parametrize(
+    "selected, expect_partial",
+    [
+        ("2024-01-01T00:01", False),
+        ("2024-01-01T00:02", True),
+    ],
+)
+def test_cli_smoke_datetime_closed_bar_boundary(
+    two_bar_csv: Path,
+    selected: str,
+    expect_partial: bool,
+) -> None:
+    """
+    Selecting a bar's opening time excludes that bar; selecting its
+    closing time includes it.
+    """
+    commands = f"datetime {selected}\nquit\n"
+
+    result = subprocess.run(
+        ["poetry", "run", "volume-companion", str(two_bar_csv)],
+        input=commands,
+        text=True,
+        capture_output=True,
+        timeout=SUBPROCESS_TIMEOUT_SECONDS,
+    )
+
+    assert result.returncode == 0
+    assert not result.stderr
+
+    out = result.stdout
+    partial_blocks = "▁▂▃▄▅▆▇"
+
+    expected_selected = datetime.fromisoformat(selected)
+    assert f"selected_datetime={expected_selected}" in out
+    assert "█" in out
+    assert any(ch in out for ch in partial_blocks) is expect_partial
 
 
 @pytest.mark.system
@@ -370,17 +410,18 @@ def test_step_success_updates_state(
         mock_cli, state, data_store, make_bar, capsys
 ):
     """When next_slice returns bars, state must update to the last bar
-    timestamp."""
+    closing time."""
     b1 = make_bar(datetime(2025, 1, 1, 10, 1))
     b2 = make_bar(datetime(2025, 1, 1, 10, 2))
+    close = datetime(2025, 1, 1, 10, 3)
     data_store.next_slice.return_value = (b1, b2)
+    data_store.close_time.return_value = close
 
     result = mock_cli._step(2)
 
     assert result == (b1, b2)
-    state.set_from_server_datetime.assert_called_once_with(
-        datetime(2025, 1, 1, 10, 2)
-    )
+    data_store.close_time.assert_called_once_with(b2)
+    state.set_from_server_datetime.assert_called_once_with(close)
     assert "selected_datetime" in capsys.readouterr().out
 
 
@@ -398,13 +439,16 @@ def test_step_no_bars_state_unchanged(mock_cli, state, data_store, capsys):
 def test_step_single_bar_updates_state(mock_cli, state, data_store, make_bar):
     """Single-bar slices must still update state correctly."""
     ts = datetime(2025, 1, 1, 10, 5)
+    close = datetime(2025, 1, 1, 10, 6)
     bar = make_bar(ts)
     data_store.next_slice.return_value = (bar,)
+    data_store.close_time.return_value = close
 
     result = mock_cli._step(1)
 
     assert result == (bar,)
-    state.set_from_server_datetime.assert_called_once_with(ts)
+    data_store.close_time.assert_called_once_with(bar)
+    state.set_from_server_datetime.assert_called_once_with(close)
 
 
 def test_step_passes_correct_arguments(mock_cli, state, data_store, make_bar):
@@ -425,18 +469,21 @@ def test_step_two_consecutive_updates(mock_cli, state, data_store, make_bar):
     """Sequential steps must update state predictably."""
     ts1 = datetime(2025, 1, 1, 10, 1)
     ts2 = datetime(2025, 1, 1, 10, 2)
+    close1 = datetime(2025, 1, 1, 10, 2)
+    close2 = datetime(2025, 1, 1, 10, 3)
 
     data_store.next_slice.side_effect = [
         (make_bar(ts1),),
         (make_bar(ts2),),
     ]
+    data_store.close_time.side_effect = [close1, close2]
 
     mock_cli._step(1)
     mock_cli._step(1)
 
     assert state.set_from_server_datetime.call_args_list == [
-        call(ts1),
-        call(ts2),
+        call(close1),
+        call(close2),
     ]
 
 
@@ -464,46 +511,76 @@ def test_query_datetime_empty_slice(mock_cli, state, data_store, capsys):
 
     assert result == ()
     output = capsys.readouterr().out
-    assert "before the first available bar" in output
+    assert "No completed bars at or before" in output
     state.set_from_server_datetime.assert_not_called()
 
 
-def test_query_datetime_exact_match(
+def test_query_datetime_snaps_to_last_bar_close(
         mock_cli, state, data_store, make_bar, capsys
 ):
-    """Update state and print selected datetime when last bar matches
-    server_dt."""
-    ts = state.as_server_datetime
-    bars = (make_bar(ts), make_bar(ts), make_bar(ts))
+    """Update state and print selected datetime at the last bar close."""
+    state.bars = 2
+    close = datetime(2025, 1, 1, 10, 1)
+    bars = (
+        make_bar(datetime(2025, 1, 1, 9, 59)),
+        make_bar(datetime(2025, 1, 1, 10, 0)),
+    )
     data_store.get_slice.return_value = bars
+    data_store.close_time.return_value = close
 
     result = mock_cli._query_datetime()
 
     assert result == bars
-    state.set_from_server_datetime.assert_called_once_with(ts)
+    data_store.close_time.assert_called_once_with(bars[-1])
+    state.set_from_server_datetime.assert_called_once_with(close)
 
     output = capsys.readouterr().out
     assert "selected_datetime=" in output
-    assert "No bar exactly" not in output
     assert "Only" not in output
 
 
-def test_query_datetime_no_exact_match(
-        mock_cli, state, data_store, make_bar, capsys
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "selected, expected",
+    [
+        ("2024-01-01T08:00", ()),
+        ("2024-01-01T08:05", (datetime(2024, 1, 1, 10, 0),)),
+    ],
+)
+def test_query_datetime_applies_offset_before_completion_check(
+    selected,
+    expected,
 ):
-    """Warn when no bar exactly matches the selected datetime."""
-    bars = (
-        make_bar(datetime(2025, 1, 1, 9, 58)),
-        make_bar(datetime(2025, 1, 1, 9, 59)),
-        make_bar(datetime(2025, 1, 1, 9, 59, 30)),  # not equal to server_dt
+    """The timezone offset is applied before the timeframe boundary."""
+    bars = [
+        Bar(
+            timestamp=datetime(2024, 1, 1, 10, 0),
+            open_=1,
+            high=1,
+            low=1,
+            close=1,
+            volume=1,
+        ),
+        Bar(
+            timestamp=datetime(2024, 1, 1, 10, 5),
+            open_=1,
+            high=1,
+            low=1,
+            close=1,
+            volume=1,
+        ),
+    ]
+    state = SessionState(selected_datetime=selected, offset=2)
+    cli = VolumeCLI(
+        state=state,
+        formatter=Formatter(),
+        data_store=DataStore(bars),
     )
-    data_store.get_slice.return_value = bars
 
-    mock_cli._query_datetime()
+    result = cli._query_datetime()
 
-    output = capsys.readouterr().out
-    assert "No bar exactly at" in output
-    state.set_from_server_datetime.assert_called_once_with(bars[-1].timestamp)
+    assert tuple(bar.timestamp for bar in result) == expected
+    assert state.selected_datetime == datetime.fromisoformat(selected)
 
 
 def test_query_datetime_fewer_bars_than_requested(
@@ -511,15 +588,18 @@ def test_query_datetime_fewer_bars_than_requested(
 ):
     """Warn when fewer bars than requested are available."""
     state.bars = 5
+    close = datetime(2025, 1, 1, 10, 0)
     bars = (
         make_bar(datetime(2025, 1, 1, 9, 58)),
         make_bar(datetime(2025, 1, 1, 9, 59)),
     )
     data_store.get_slice.return_value = bars
+    data_store.close_time.return_value = close
 
     result = mock_cli._query_datetime()
 
     assert result == bars
     output = capsys.readouterr().out
     assert "Only 2 bars available" in output
-    state.set_from_server_datetime.assert_called_once_with(bars[-1].timestamp)
+    data_store.close_time.assert_called_once_with(bars[-1])
+    state.set_from_server_datetime.assert_called_once_with(close)

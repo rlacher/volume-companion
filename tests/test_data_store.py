@@ -288,11 +288,11 @@ def test_load_csv_utf8_bom(tmp_path):
             ["2024-01-01 10:00", "2024-01-01 10:01", "2024-01-01 10:02"],
             dt.datetime(2024, 1, 1, 10, 2),
             2,
-            [1, 2],
+            [0, 1],
         ),
         (
             ["2024-01-01 10:00", "2024-01-01 10:02"],
-            dt.datetime(2024, 1, 1, 10, 1),
+            dt.datetime(2024, 1, 1, 10, 2),
             5,
             [0],
         ),
@@ -306,11 +306,29 @@ def test_get_slice_basic_valid(
     assert [b.timestamp.minute for b in result] == expected_minutes
 
 
-def test_get_slice_n_equals_one_exact_match(make_store):
+def test_get_slice_n_equals_one_at_closing_time(make_store):
     store = make_store(["2024-01-01 10:00", "2024-01-01 10:01"])
-    end_dt = dt.datetime(2024, 1, 1, 10, 1)
+    end_dt = dt.datetime(2024, 1, 1, 10, 2)
     result = store.get_slice(end_dt, 1)
     assert [b.timestamp.minute for b in result] == [1]
+
+
+def test_get_slice_excludes_bar_at_opening_timestamp(make_store):
+    store = make_store(["2024-01-01 10:00", "2024-01-01 10:01"])
+    end_dt = dt.datetime(2024, 1, 1, 10, 1)
+    result = store.get_slice(end_dt, 5)
+    assert [b.timestamp.minute for b in result] == [0]
+
+
+def test_get_slice_excludes_in_progress_bar(make_store):
+    store = make_store([
+        "2024-01-01 10:00",
+        "2024-01-01 10:05",
+        "2024-01-01 10:10",
+    ])
+    end_dt = dt.datetime(2024, 1, 1, 10, 7)
+    result = store.get_slice(end_dt, 5)
+    assert [b.timestamp.minute for b in result] == [0]
 
 
 # ---------------------------------------------------------------------------
@@ -323,9 +341,15 @@ def test_get_slice_end_dt_before_first_bar(make_store):
     assert store.get_slice(end_dt, 5) == ()
 
 
-def test_get_slice_end_dt_equals_first_bar(make_store):
+def test_get_slice_end_dt_equals_first_bar_open(make_store):
     store = make_store(["2024-01-01 10:00", "2024-01-01 10:01"])
     end_dt = dt.datetime(2024, 1, 1, 10, 0)
+    assert store.get_slice(end_dt, 5) == ()
+
+
+def test_get_slice_end_dt_equals_first_bar_close(make_store):
+    store = make_store(["2024-01-01 10:00", "2024-01-01 10:01"])
+    end_dt = dt.datetime(2024, 1, 1, 10, 1)
     result = store.get_slice(end_dt, 5)
     assert [b.timestamp.minute for b in result] == [0]
 
@@ -337,6 +361,41 @@ def test_get_slice_end_dt_after_last_bar(make_store):
     assert [b.timestamp.minute for b in result] == [1]
 
 
+def test_get_slice_inferred_timeframe_ignores_session_gap(make_store):
+    store = make_store([
+        "2024-01-01 10:00",
+        "2024-01-01 10:05",
+        "2024-01-01 10:10",
+        "2024-01-02 09:00",
+    ])
+    end_dt = dt.datetime(2024, 1, 2, 8, 59)
+    result = store.get_slice(end_dt, 10)
+    assert [b.timestamp.strftime("%d %H:%M") for b in result] == [
+        "01 10:00",
+        "01 10:05",
+        "01 10:10",
+    ]
+
+
+def test_get_slice_single_bar_has_no_timeframe(make_store):
+    store = make_store(["2024-01-01 10:00"])
+    end_dt = dt.datetime(2024, 1, 2, 0, 0)
+    assert store.get_slice(end_dt, 5) == ()
+
+
+def test_close_time_uses_inferred_timeframe(make_store):
+    store = make_store(["2024-01-01 10:00", "2024-01-01 10:05"])
+    assert store.close_time(store._bars[0]) == dt.datetime(
+        2024, 1, 1, 10, 5
+    )
+
+
+def test_close_time_requires_inferred_timeframe(make_store):
+    store = make_store(["2024-01-01 10:00"])
+    with pytest.raises(ValueError, match="without a timeframe"):
+        store.close_time(store._bars[0])
+
+
 def test_get_slice_duplicate_timestamps_exact_match(make_bar):
     bars = [
         make_bar("2024-01-01 10:00"),
@@ -344,7 +403,7 @@ def test_get_slice_duplicate_timestamps_exact_match(make_bar):
         make_bar("2024-01-01 10:01"),
     ]
     store = DataStore(bars)
-    end_dt = dt.datetime(2024, 1, 1, 10, 0)
+    end_dt = dt.datetime(2024, 1, 1, 10, 1)
     result = store.get_slice(end_dt, 10)
     assert len(result) == 2
     assert all(b.timestamp.minute == 0 for b in result)
@@ -357,7 +416,7 @@ def test_get_slice_duplicate_timestamps_mid_range(make_bar):
         make_bar("2024-01-01 10:01"),
     ]
     store = DataStore(bars)
-    end_dt = dt.datetime(2024, 1, 1, 10, 0, 30)
+    end_dt = dt.datetime(2024, 1, 1, 10, 1, 30)
     result = store.get_slice(end_dt, 10)
     assert len(result) == 2
     assert all(b.timestamp.minute == 0 for b in result)
@@ -365,7 +424,7 @@ def test_get_slice_duplicate_timestamps_mid_range(make_bar):
 
 def test_get_slice_day_boundary_behavior(make_store):
     store = make_store(["2024-01-01 23:59", "2024-01-02 00:00"])
-    end_dt = dt.datetime(2024, 1, 1, 23, 59)
+    end_dt = dt.datetime(2024, 1, 2, 0, 0)
     result = store.get_slice(end_dt, 5)
     assert [b.timestamp.strftime("%H:%M") for b in result] == ["23:59"]
 
@@ -379,7 +438,7 @@ def test_get_slice_day_boundary_behavior(make_store):
     [
         (0, 0),
         (-5, 0),
-        (999, 2),
+        (999, 1),
     ],
 )
 def test_get_slice_n_boundaries(make_store, n, expected_len):
@@ -402,7 +461,7 @@ def test_get_slice_unsorted_input_is_sorted(make_bar):
     store = DataStore(bars)
     end_dt = dt.datetime(2024, 1, 1, 10, 2)
     result = store.get_slice(end_dt, 3)
-    assert [b.timestamp.minute for b in result] == [0, 1, 2]
+    assert [b.timestamp.minute for b in result] == [0, 1]
 
 
 def test_get_slice_empty_datastore():
@@ -417,22 +476,23 @@ def test_get_slice_empty_datastore():
 
 @pytest.mark.parametrize("end_dt", [None, 12345])
 def test_get_slice_invalid_end_dt_raises(make_store, end_dt):
-    store = make_store(["2024-01-01 10:00"])
+    store = make_store(["2024-01-01 10:00", "2024-01-01 10:01"])
     with pytest.raises(TypeError):
         store.get_slice(end_dt, 5)
 
 
 def test_get_slice_invalid_n_type_raises(make_store):
-    store = make_store(["2024-01-01 10:00"])
+    store = make_store(["2024-01-01 10:00", "2024-01-01 10:01"])
     with pytest.raises(TypeError):
-        store.get_slice(dt.datetime(2024, 1, 1, 10, 0), "abc")
+        store.get_slice(dt.datetime(2024, 1, 1, 10, 1), "abc")
 
 
 def test_get_slice_invalid_timestamp_type_raises():
     class FakeBar:
-        timestamp = 123  # invalid type
+        def __init__(self, timestamp):
+            self.timestamp = timestamp  # invalid type
 
-    store = DataStore([FakeBar()])
+    store = DataStore([FakeBar(123), FakeBar(124)])
     with pytest.raises(TypeError):
         store.get_slice(dt.datetime(2024, 1, 1, 10, 0), 5)
 
@@ -469,7 +529,7 @@ def test_next_slice_raises_on_steps_negative(make_store):
 
 
 def test_next_slice_type_error_on_non_datetime_current_dt(make_store):
-    store = make_store(["2024-01-01 00:00"])
+    store = make_store(["2024-01-01 00:00", "2024-01-01 01:00"])
     with pytest.raises(TypeError):
         store.next_slice("not-a-datetime", steps=1, n=1)
 
@@ -484,11 +544,10 @@ def test_next_slice_empty_dataset_returns_empty():
     assert result == ()
 
 
-def test_next_slice_single_bar_valid(make_store):
+def test_next_slice_single_bar_has_no_timeframe(make_store):
     store = make_store(["2024-01-01 00:00"])
     result = store.next_slice(dt.datetime(2023, 12, 31, 0, 0), steps=1, n=1)
-    assert len(result) == 1
-    assert result[0].timestamp == dt.datetime(2024, 1, 1, 0, 0)
+    assert result == ()
 
 
 def test_next_slice_single_bar_no_future_data(make_store):
@@ -517,7 +576,7 @@ def test_next_slice_duplicate_timestamps(make_store):
         "2024-01-01 00:00",
         "2024-01-01 01:00",
     ])
-    result = store.next_slice(dt.datetime(2024, 1, 1, 0, 0), steps=1, n=1)
+    result = store.next_slice(dt.datetime(2024, 1, 1, 1, 0), steps=1, n=1)
     assert result[0].timestamp == dt.datetime(2024, 1, 1, 1, 0)
 
 
@@ -531,20 +590,20 @@ def test_next_slice_current_dt_before_first_bar(make_store):
     assert result[0].timestamp == dt.datetime(2024, 1, 1, 0, 0)
 
 
-def test_next_slice_current_dt_exact_match(make_store):
+def test_next_slice_current_dt_at_closing_time(make_store):
     store = make_store(["2024-01-01 00:00", "2024-01-01 01:00"])
-    result = store.next_slice(dt.datetime(2024, 1, 1, 0, 0), steps=1, n=1)
+    result = store.next_slice(dt.datetime(2024, 1, 1, 1, 0), steps=1, n=1)
     assert result[0].timestamp == dt.datetime(2024, 1, 1, 1, 0)
 
 
-def test_next_slice_current_dt_between_bars(make_store):
+def test_next_slice_current_dt_before_first_close(make_store):
     store = make_store(["2024-01-01 00:00", "2024-01-01 02:00"])
     result = store.next_slice(dt.datetime(2024, 1, 1, 1, 0), steps=1, n=1)
-    assert result[0].timestamp == dt.datetime(2024, 1, 1, 2, 0)
+    assert result[0].timestamp == dt.datetime(2024, 1, 1, 0, 0)
 
 
 def test_next_slice_current_dt_after_last_bar(make_store):
-    store = make_store(["2024-01-01 00:00"])
+    store = make_store(["2024-01-01 00:00", "2024-01-01 01:00"])
     result = store.next_slice(dt.datetime(2024, 1, 2, 0, 0), steps=1, n=1)
     assert result == ()
 
@@ -570,7 +629,7 @@ def test_next_slice_target_idx_equal_len_returns_empty(make_store):
 
 
 def test_next_slice_target_idx_greater_than_len_returns_empty(make_store):
-    store = make_store(["2024-01-01 00:00"])
+    store = make_store(["2024-01-01 00:00", "2024-01-01 01:00"])
     result = store.next_slice(dt.datetime(2023, 12, 31, 0, 0), steps=5, n=1)
     assert result == ()
 
@@ -618,10 +677,10 @@ def test_next_slice_sliding_window_sequence(make_store):
     s1 = store.next_slice(dt.datetime(2023, 12, 31, 0, 0), steps=1, n=1)
     assert s1[0].timestamp == dt.datetime(2024, 1, 1, 0, 0)
 
-    s2 = store.next_slice(s1[-1].timestamp, steps=1, n=1)
+    s2 = store.next_slice(store.close_time(s1[-1]), steps=1, n=1)
     assert s2[0].timestamp == dt.datetime(2024, 1, 1, 1, 0)
 
-    s3 = store.next_slice(s2[-1].timestamp, steps=1, n=1)
+    s3 = store.next_slice(store.close_time(s2[-1]), steps=1, n=1)
     assert s3[0].timestamp == dt.datetime(2024, 1, 1, 2, 0)
 
 
