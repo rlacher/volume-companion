@@ -377,6 +377,43 @@ def test_get_slice_inferred_timeframe_ignores_session_gap(make_store):
     ]
 
 
+def test_infer_timeframe_ignores_off_grid_gap(make_store, capsys):
+    store = make_store([
+        "2024-01-01 10:00",
+        "2024-01-01 10:05",
+        "2024-01-01 10:07",
+        "2024-01-01 10:10",
+    ])
+    end_dt = dt.datetime(2024, 1, 1, 10, 7)
+    result = store.get_slice(end_dt, 5)
+    assert [b.timestamp.minute for b in result] == [0]
+    assert "not multiples" in capsys.readouterr().out
+
+
+def test_infer_timeframe_ignores_missing_bar(make_store, capsys):
+    store = make_store([
+        "2024-01-01 10:00",
+        "2024-01-01 10:05",
+        "2024-01-01 10:15",
+        "2024-01-01 10:20",
+        "2024-01-01 10:25",
+    ])
+    end_dt = dt.datetime(2024, 1, 1, 10, 10)
+    result = store.get_slice(end_dt, 5)
+    assert [b.timestamp.minute for b in result] == [0, 5]
+    assert "not multiples" not in capsys.readouterr().out
+
+
+def test_infer_timeframe_tie_breaks_to_larger_gap(make_store):
+    store = make_store([
+        "2024-01-01 10:00",
+        "2024-01-01 10:05",
+        "2024-01-01 10:15",
+    ])
+    end_dt = dt.datetime(2024, 1, 1, 10, 6)
+    assert store.get_slice(end_dt, 5) == ()
+
+
 def test_get_slice_single_bar_has_no_timeframe(make_store):
     store = make_store(["2024-01-01 10:00"])
     end_dt = dt.datetime(2024, 1, 2, 0, 0)

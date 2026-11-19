@@ -6,6 +6,7 @@ from __future__ import annotations
 import bisect
 import csv
 import datetime as dt
+from collections import Counter
 from itertools import pairwise
 from pathlib import Path
 
@@ -93,13 +94,25 @@ class DataStore:
         return cls(bars)
 
     def _infer_timeframe(self) -> dt.timedelta | None:
-        """Infer one timeframe from the smallest positive timestamp gap."""
-        gaps = (
+        """Infer one timeframe from the most common positive timestamp gap."""
+        gaps = [
             later - earlier
             for earlier, later in pairwise(self._timestamps)
             if later > earlier
-        )
-        return min(gaps, default=None)
+        ]
+        if not gaps:
+            return None
+
+        counts = Counter(gaps)
+        timeframe = max(counts, key=lambda gap: (counts[gap], gap))
+
+        off_grid = sum(1 for gap in gaps if gap % timeframe)
+        if off_grid:
+            print(
+                f"Warning: {off_grid} timestamp gap(s) are not "
+                f"multiples of the inferred timeframe {timeframe}"
+            )
+        return timeframe
 
     def close_time(self, bar: Bar) -> dt.datetime:
         """Return the closing time of a bar based on the timeframe."""
